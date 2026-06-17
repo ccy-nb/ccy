@@ -157,6 +157,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         messagesJob?.cancel()
         doSendMessages(messagesToSend)
+        // 重新监听消息变化
+        viewModelScope.launch {
+            val sid = _currentSession.value?.id ?: return@launch
+            messagesJob = viewModelScope.launch {
+                chatRepo.getMessagesFlow(sid).collect { messages ->
+                    _currentSession.value = _currentSession.value?.copy(messages = messages)
+                }
+            }
+        }
     }
 
     fun deleteMessage(msgId: String) {
@@ -251,29 +260,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
 
                     val reply = builder.toString()
-                    // DEBUG: 写原始响应用到下载文件夹
-                    try {
-                        val debugFile = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "agent_debug.txt")
-                        debugFile.writeText("=== API Reply ===\nProvider: ${cfg.provider}\nModel: ${cfg.model}\nURL: ${cfg.baseUrl}\nKeyLen: ${cfg.apiKey.length}\n---\n$reply\n=== End ===")
-                    } catch (_: Exception) { }
                     if (reply.isNotEmpty()) {
+                        val s = _currentSession.value ?: return@withLock
                         if (reply.startsWith("[ERROR:")) {
                             val raw = reply.removePrefix("[ERROR: ").removeSuffix("]").trim()
                             val errText = if (raw.isEmpty() || raw == "null") "未知错误" else raw
-                            val em = Message(
-                                role = Role.ASSISTANT,
-                                content = "⚠️ API 错误：$errText"
-                            )
-                            val fs = _currentSession.value?.copy(
-                                messages = _currentSession.value!!.messages + em
-                            ) ?: return@withLock
+                            val em = Message(role = Role.ASSISTANT, content = "⚠️ API 错误：$errText")
+                            val fs = s.copy(messages = s.messages + em)
                             withContext(Dispatchers.Main) { _currentSession.value = fs }
                             chatRepo.save(fs)
                         } else {
                             val am = Message(role = Role.ASSISTANT, content = reply)
-                            val fs = _currentSession.value?.copy(
-                                messages = _currentSession.value!!.messages + am
-                            ) ?: return@withLock
+                            val fs = s.copy(messages = s.messages + am)
                             withContext(Dispatchers.Main) { _currentSession.value = fs }
                             chatRepo.save(fs)
                         }
@@ -281,13 +279,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _streamingText.value = ""
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     if (builder.isNotEmpty()) {
-                        val pm = Message(
-                            role = Role.ASSISTANT,
-                            content = builder.toString() + "\n\n(回复未完成)"
-                        )
-                        val fs = _currentSession.value?.copy(
-                            messages = _currentSession.value!!.messages + pm
-                        ) ?: return@withLock
+                        val s = _currentSession.value ?: return@withLock
+                        val pm = Message(role = Role.ASSISTANT, content = builder.toString() + "\n\n(回复未完成)")
+                        val fs = s.copy(messages = s.messages + pm)
                         withContext(Dispatchers.Main) { _currentSession.value = fs }
                         chatRepo.save(fs)
                     }
@@ -305,13 +299,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             if (msg.isNotBlank()) msg else "$cls$cause"
                         }
                     }
-                    val em = Message(
-                        role = Role.ASSISTANT,
-                        content = "⚠️ 出错了：$detail"
-                    )
-                    val fs = _currentSession.value?.copy(
-                        messages = _currentSession.value!!.messages + em
-                    ) ?: return@withLock
+                    val s = _currentSession.value ?: return@withLock
+                    val em = Message(role = Role.ASSISTANT, content = "⚠️ 出错了：$detail")
+                    val fs = s.copy(messages = s.messages + em)
                     withContext(Dispatchers.Main) { _currentSession.value = fs }
                     chatRepo.save(fs)
                 }

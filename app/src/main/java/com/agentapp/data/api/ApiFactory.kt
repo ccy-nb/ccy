@@ -65,6 +65,7 @@ class ApiFactory {
 
     /** 发送一个 max_tokens=1 的 chat 请求验证 API Key 是否有效 */
     private suspend fun verifyApiKey(config: ApiConfig): ConnectionResult {
+        if (config.apiKey.isBlank()) return ConnectionResult.Fail("API Key 为空")
         return try {
             val bodyJson = if (isOpenAiCompatible(config.provider)) {
                 """{"model":"${config.model}","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}"""

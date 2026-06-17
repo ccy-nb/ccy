@@ -102,6 +102,7 @@ class OpenAiClient(private val config: ApiConfig) {
 
         val url = "${config.baseUrl.trimEnd('/')}/chat/completions"
 
+        var response: okhttp3.Response? = null
         try {
             val bodyJson = json.encodeToString(requestBody)
             val request = Request.Builder()
@@ -112,7 +113,7 @@ class OpenAiClient(private val config: ApiConfig) {
                 .post(bodyJson.toRequestBody(jsonMedia))
                 .build()
 
-            val response = client.newCall(request).execute()
+            response = client.newCall(request).execute()
 
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: ""
@@ -168,6 +169,7 @@ class OpenAiClient(private val config: ApiConfig) {
             val msg = e.message ?: "null"
             val cause = e.cause?.let { " ← ${it.javaClass.simpleName}: ${it.message}" } ?: ""
             trySend("[ERROR: $cls: $msg$cause]")
+            try { response?.close() } catch (_: Exception) {}
             close()
         }
 

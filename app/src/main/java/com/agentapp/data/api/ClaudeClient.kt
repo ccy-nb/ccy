@@ -100,8 +100,9 @@ class ClaudeClient(private val config: ApiConfig) {
             .post(json.encodeToString(requestBody).toRequestBody(jsonMedia))
             .build()
 
+        var response: okhttp3.Response? = null
         try {
-            val response = client.newCall(request).execute()
+            response = client.newCall(request).execute()
 
             // 检查 HTTP 状态码
             if (!response.isSuccessful) {
@@ -161,7 +162,8 @@ class ClaudeClient(private val config: ApiConfig) {
             response.close()
             close()
         } catch (e: Exception) {
-            trySend("[ERROR: ${e.message}]")
+            trySend("[ERROR: ${e.javaClass.simpleName}: ${e.message ?: "null"}]")
+            try { response?.close() } catch (_: Exception) {}
             close()
         }
 
