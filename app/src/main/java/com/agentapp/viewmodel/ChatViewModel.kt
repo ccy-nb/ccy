@@ -253,9 +253,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val reply = builder.toString()
                     if (reply.isNotEmpty()) {
                         if (reply.startsWith("[ERROR:")) {
+                            val raw = reply.removePrefix("[ERROR: ").removeSuffix("]").trim()
+                            val errText = if (raw.isEmpty() || raw == "null") "未知错误" else raw
                             val em = Message(
                                 role = Role.ASSISTANT,
-                                content = "⚠️ API 错误：${reply.removePrefix("[ERROR: ").removeSuffix("]")}"
+                                content = "⚠️ API 错误：$errText"
                             )
                             val fs = _currentSession.value?.copy(
                                 messages = _currentSession.value!!.messages + em

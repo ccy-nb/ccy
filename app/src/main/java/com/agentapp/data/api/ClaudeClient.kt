@@ -100,6 +100,22 @@ class ClaudeClient(private val config: ApiConfig) {
 
         try {
             val response = client.newCall(request).execute()
+
+            // 检查 HTTP 状态码
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string() ?: ""
+                val errMsg = try {
+                    val errJson = json.decodeFromString<ClaudeResponse>(errorBody)
+                    errJson.error?.message ?: "HTTP ${response.code}"
+                } catch (_: Exception) {
+                    "HTTP ${response.code}: ${errorBody.take(100)}"
+                }
+                trySend("[ERROR: $errMsg]")
+                response.close()
+                close()
+                return@callbackFlow
+            }
+
             val bodyStream = response.body?.byteStream()
             if (bodyStream == null) {
                 close()
@@ -115,6 +131,16 @@ class ClaudeClient(private val config: ApiConfig) {
                     l.startsWith("event: ") -> { currentEvent = l.removePrefix("event: ").trim() }
                     l.startsWith("data: ") -> {
                         val data = l.removePrefix("data: ").trim()
+                        // 处理 error 事件
+                        if (currentEvent == "error") {
+                            try {
+                                val errChunk = json.decodeFromString<ClaudeResponse>(data)
+                                trySend("[ERROR: ${errChunk.error?.message ?: data.take(100)}]")
+                            } catch (_: Exception) {
+                                trySend("[ERROR: ${data.take(100)}]")
+                            }
+                            break
+                        }
                         // 只处理 content_block_delta 事件的 data
                         if (currentEvent == "content_block_delta") {
                             try {
@@ -122,7 +148,6 @@ class ClaudeClient(private val config: ApiConfig) {
                                 val text = chunk.delta?.text ?: ""
                                 if (text.isNotEmpty()) trySend(text)
                             } catch (_: Exception) {
-                                // 单条 SSE 数据解析失败不中断整个流
                                 trySend("[WARN: 跳过异常数据: ${data.take(80)}]")
                             }
                         }

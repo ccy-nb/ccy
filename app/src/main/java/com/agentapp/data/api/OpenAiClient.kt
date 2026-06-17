@@ -103,6 +103,22 @@ class OpenAiClient(private val config: ApiConfig) {
 
         try {
             val response = client.newCall(request).execute()
+
+            // 检查 HTTP 状态码
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string() ?: ""
+                val errMsg = try {
+                    val errJson = json.decodeFromString<ChatCompletionResponse>(errorBody)
+                    errJson.error?.message ?: "HTTP ${response.code}"
+                } catch (_: Exception) {
+                    "HTTP ${response.code}: ${errorBody.take(100)}"
+                }
+                trySend("[ERROR: $errMsg]")
+                response.close()
+                close()
+                return@callbackFlow
+            }
+
             val bodyStream = response.body?.byteStream()
             if (bodyStream == null) {
                 close()
@@ -118,12 +134,17 @@ class OpenAiClient(private val config: ApiConfig) {
                     if (data == "[DONE]") break
                     try {
                         val chunk = json.decodeFromString<ChatCompletionResponse>(data)
+                        // 检查 SSE 中的错误
+                        val errMsg = chunk.error?.message
+                        if (errMsg != null) {
+                            trySend("[ERROR: $errMsg]")
+                            break
+                        }
                         val content = chunk.choices.firstOrNull()?.delta?.content ?: ""
                         if (content.isNotEmpty()) {
                             trySend(content)
                         }
                     } catch (_: Exception) {
-                        // 单条 SSE 数据解析失败不中断整个流
                         if (data != "[DONE]") trySend("[WARN: 跳过异常数据: ${data.take(80)}]") else {}
                     }
                 }
