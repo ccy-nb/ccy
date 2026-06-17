@@ -41,7 +41,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,8 +66,7 @@ import java.io.File
 @Composable
 fun CharacterListScreen(
     modifier: Modifier = Modifier,
-    characterListViewModel: CharacterListViewModel,
-    onChatOpened: (Boolean) -> Unit = {}
+    characterListViewModel: CharacterListViewModel
 ) {
     val characters by characterListViewModel.characters.collectAsState()
     val searchQuery by characterListViewModel.searchQuery.collectAsState()
@@ -110,11 +108,6 @@ fun CharacterListScreen(
             onCancel = { showEdit = false; editingCharacter = null }
         )
         return
-    }
-
-    // 通知 MainScreen 隐藏底部导航
-    LaunchedEffect(chattingCharacterId) {
-        onChatOpened(chattingCharacterId != null)
     }
 
     // 对话模式
