@@ -68,15 +68,13 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
         val ext = file.extension.lowercase()
         if (ext == "png") {
             // PNG: 尝试完整导入（含世界书）
-            val result = characterRepo.importFromPngWithWorldBook(file)
-            if (result != null) {
-                characterRepo.save(result.character)
-                // 导入世界书条目
-                result.worldEntries.forEach { worldRepo.save(it) }
-                refresh()
-                return result.character
-            }
-            return null
+            val result = characterRepo.importFromPngWithWorldBook(file) ?: return null
+            characterRepo.save(result.character)
+            // 导入世界书条目 — 直接通过 DAO 保存并验证
+            val savedCount = worldRepo.saveAll(result.worldEntries)
+            android.util.Log.d("AgentApp", "世界书导入: 尝试保存 ${result.worldEntries.size} 条, 实际 $savedCount 条")
+            refresh()
+            return result.character
         }
         // JSON 或其他
         val char = characterRepo.importFromFile(file) ?: return null

@@ -127,7 +127,9 @@ class CharacterRepository(private val context: Context) {
             )
 
             // 提取 character_book → WorldEntry 列表
-            val bookJson = root["data"]?.jsonObject?.get("character_book")?.jsonObject
+            // V3: data.extensions.character_book, V2: data.character_book, V1: character_book
+            val bookJson = innerExt?.get("character_book")?.jsonObject
+                ?: inner["character_book"]?.jsonObject
                 ?: root["character_book"]?.jsonObject
             val entries = mutableListOf<com.agentapp.data.model.WorldEntry>()
             if (bookJson != null) {

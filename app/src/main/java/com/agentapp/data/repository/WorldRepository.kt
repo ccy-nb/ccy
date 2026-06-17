@@ -26,6 +26,18 @@ class WorldRepository(private val context: Context) {
         dao.save(entry.toEntity())
     }
 
+    /** 批量保存，返回成功条数 */
+    suspend fun saveAll(entries: List<WorldEntry>): Int {
+        var count = 0
+        for (entry in entries) {
+            try {
+                dao.save(entry.toEntity())
+                count++
+            } catch (_: Exception) { /* 跳过写入失败的条目 */ }
+        }
+        return count
+    }
+
     suspend fun delete(id: String) {
         dao.deleteById(id)
     }
