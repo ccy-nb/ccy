@@ -30,6 +30,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val worldRepo = WorldRepository(application)
     private val personaRepo = com.agentapp.data.repository.PersonaRepository(application)
     private val regexRepo = com.agentapp.data.repository.RegexRepository(application)
+    private val varRepo = com.agentapp.data.repository.VariableRepository(application)
     private val apiFactory = ApiFactory()
 
     private val _currentSession = MutableStateFlow<ChatSession?>(null)
@@ -248,7 +249,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         streamJob = viewModelScope.launch {
             sendMutex.withLock {
                 val builder = StringBuilder()
-                val scripts = regexRepo.list()  // 一次性加载正则
+                val baseScripts = regexRepo.list().toMutableList()  // 基础正则
+                // 加载当前变量 → 生成状态面板
+                val currentVars = varRepo.get(session.id)
+                val statusText = if (currentVars.keys.isNotEmpty()) {
+                    com.agentapp.data.model.formatVariableTree(varRepo.flattenVariables(currentVars))
+                } else ""
+                val scripts = baseScripts.toMutableList()
+                if (statusText.isNotEmpty()) {
+                    val idx = scripts.indexOfFirst { it.findRegex.contains("StatusPlaceHolder") }
+                    if (idx >= 0) scripts[idx] = scripts[idx].copy(replaceString = "```\n$statusText\n```")
+                }
+
                 try {
                     val cfg = settingsRepo.getApiConfigSync()
                     val character = characterRepo.get(session.characterId)
@@ -275,6 +287,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             val processedReply = regexRepo.applyScripts(reply, scripts)
                             val am = Message(role = Role.ASSISTANT, content = processedReply)
                             val fs = s.copy(messages = s.messages + am)
+
+                            // 从回复中提取变量更新（异步，不阻塞渲染）
+                            val patchOps = com.agentapp.data.model.parseUpdateVariableBlock(reply)
+                            if (patchOps.isNotEmpty()) {
+                                viewModelScope.launch {
+                                    val newVars = varRepo.applyPatch(currentVars, patchOps)
+                                    varRepo.save(session.id, newVars)
+                                }
+                            }
                             withContext(Dispatchers.Main) { _currentSession.value = fs }
                             chatRepo.save(fs)
                         }
