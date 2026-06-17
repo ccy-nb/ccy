@@ -39,18 +39,23 @@ data class Character(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun buildSystemPrompt(): String {
-        // 优先使用自定义 systemPrompt（通常从导入的 depth_prompt + creator_notes 已合并）
-        if (systemPrompt.isNotBlank()) return systemPrompt
-
         val sb = StringBuilder()
+
+        // 基本信息
         sb.appendLine("你是 $name。")
         if (description.isNotBlank()) { sb.appendLine(); sb.appendLine("描述: $description") }
         if (personality.isNotBlank()) { sb.appendLine(); sb.appendLine("性格: $personality") }
         if (scenario.isNotBlank()) { sb.appendLine(); sb.appendLine("场景: $scenario") }
-        if (depthPrompt.isNotBlank()) { sb.appendLine(); sb.appendLine("深度设定: $depthPrompt") }
+
+        // 深度设定（来自导入的 depth_prompt，或手动填的系统提示词）
+        val dp = if (depthPrompt.isNotBlank()) depthPrompt else systemPrompt
+        if (dp.isNotBlank()) { sb.appendLine(); sb.appendLine("=== 核心指令 ==="); sb.appendLine(dp) }
+
+        // 辅助材料
         if (mesExample.isNotBlank()) { sb.appendLine(); sb.appendLine("对话示例: $mesExample") }
         if (postHistoryInstructions.isNotBlank()) { sb.appendLine(); sb.appendLine("历史指令: $postHistoryInstructions") }
         if (creatorNotes.isNotBlank()) { sb.appendLine(); sb.appendLine("作者备注: $creatorNotes") }
+
         sb.appendLine()
         sb.appendLine("请以 $name 的身份回复，保持角色设定。")
         return sb.toString()
