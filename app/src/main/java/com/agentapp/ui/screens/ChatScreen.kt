@@ -49,6 +49,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agentapp.data.estimateChatTokens
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
+import com.agentapp.ui.components.StatusPanel
+import com.agentapp.data.repository.VariableRepository
 import com.agentapp.ui.theme.Pink
 import com.agentapp.ui.theme.TextGray
 import com.agentapp.viewmodel.ChatViewModel
@@ -88,6 +90,7 @@ fun ChatScreen(
 
     val session = currentSession
     val matchedWorldKeywords by chatViewModel.matchedWorldKeywords.collectAsState()
+    val varRepo = remember { VariableRepository(context) }
 
     // === 消息操作弹窗 ===
     if (showMessageActions != null) {
@@ -331,8 +334,24 @@ fun ChatScreen(
                 ) {
                     item { Spacer(Modifier.height(4.dp)) }
                     items(filteredMessages, key = { it.id }) { msg ->
+                        val statusPanelId = remember(msg.id) {
+                            val statusMarker = "```\n═══ 当前状态 ═══"
+                            val statusEnd = "\n```"
+                            if (msg.content.contains(statusMarker)) {
+                                val startIdx = msg.content.indexOf(statusMarker)
+                                val endIdx = msg.content.indexOf(statusEnd, startIdx + statusMarker.length)
+                                val cleanText = if (endIdx > startIdx) {
+                                    (msg.content.substring(0, startIdx) + msg.content.substring(endIdx + statusEnd.length)).trim()
+                                } else msg.content.substring(0, startIdx).trim()
+                                cleanText to true
+                            } else {
+                                msg.content to false
+                            }
+                        }
+                        val (displayText, hasPanel) = statusPanelId
+
                         CuteMessageBubble(
-                            message = msg,
+                            message = msg.copy(content = displayText),
                             isUser = msg.role == Role.USER,
                             onLongClick = { showMessageActions = msg.id },
                             onSpeak = { chatViewModel.speakText(msg.content) },
@@ -340,6 +359,14 @@ fun ChatScreen(
                             onEdit = { editMessageId = msg.id; editText = msg.content },
                             onDelete = { chatViewModel.deleteMessage(msg.id) }
                         )
+
+                        if (hasPanel && msg.role == Role.ASSISTANT && session != null) {
+                            StatusPanel(
+                                sessionId = session.id,
+                                variableRepository = varRepo,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                        }
                     }
                     if (streamingText.isNotEmpty()) {
                         item {
