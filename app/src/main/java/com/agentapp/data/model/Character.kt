@@ -9,8 +9,10 @@ data class Character(
     val description: String = "",
     val personality: String = "",
     val scenario: String = "",
+    @kotlinx.serialization.SerialName("first_mes")
     val greeting: String = "",
     val avatarUri: String = "",
+    @kotlinx.serialization.SerialName("system_prompt")
     val systemPrompt: String = "",
     val worldBookEnabled: Boolean = true,   // 该角色是否启用世界书
     val createdAt: Long = System.currentTimeMillis()

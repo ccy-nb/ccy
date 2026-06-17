@@ -7,6 +7,8 @@ import com.agentapp.data.model.Character
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 
 class CharacterRepository(private val context: Context) {
@@ -36,10 +38,10 @@ class CharacterRepository(private val context: Context) {
         dao.deleteById(id)
     }
 
-    /** 从 JSON 文本导入角色 */
+    /** 从 JSON 文本导入角色 —— 自动适配 SillyTavern V1/V2/V3 和纯 Character 格式 */
     suspend fun importFromJson(content: String): Character? {
         return try {
-            json.decodeFromString<Character>(content)
+            parseCharacterJson(content)
         } catch (_: Exception) { null }
     }
 
@@ -47,9 +49,22 @@ class CharacterRepository(private val context: Context) {
     fun importFromPng(file: File): Character? {
         return try {
             val bytes = file.readBytes()
-            val text = extractPngCharaText(bytes)
-            if (text != null) json.decodeFromString<Character>(text) else null
+            val text = extractPngCharaText(bytes) ?: return null
+            parseCharacterJson(text)
         } catch (_: Exception) { null }
+    }
+
+    /** 解析角色 JSON，自动提取 SillyTavern data 包裹层 */
+    private fun parseCharacterJson(text: String): Character? {
+        return try {
+            val root = json.parseToJsonElement(text).jsonObject
+            // SillyTavern V2/V3 格式: { spec, data: { name, ... } }
+            val inner = root["data"]?.jsonObject ?: root
+            json.decodeFromJsonElement<Character>(inner)
+        } catch (_: Exception) {
+            // 回退: 直接解析
+            json.decodeFromString<Character>(text)
+        }
     }
 
     /** 从文件导入（自动识别 JSON 或 PNG）*/
