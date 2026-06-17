@@ -62,7 +62,10 @@ class CharacterRepository(private val context: Context) {
         }
     }
 
-    /** 从 PNG 字节中提取 SillyTavern 的角色 JSON（tEXt chunk, keyword="chara"）*/
+    /**
+     * 从 PNG 字节中提取 SillyTavern 的角色 JSON。
+     * 支持 V1/V2 (keyword="chara") 和 V3 (keyword="v3chara" 或 base64-encoded "v3")。
+     */
     private fun extractPngCharaText(bytes: ByteArray): String? {
         var pos = 8
         while (pos + 8 <= bytes.size) {
@@ -71,16 +74,33 @@ class CharacterRepository(private val context: Context) {
                          ((bytes[pos + 2].toInt() and 0xFF) shl 8) or
                          (bytes[pos + 3].toInt() and 0xFF)
             val type = String(bytes, pos + 4, 4, Charsets.US_ASCII)
-            val data = pos + 8
+            val dataStart = pos + 8
             val crc = pos + 8 + length
 
-            if (type == "tEXt" || type == "iTXt") {
+            if (type == "tEXt" || type == "iTXt" || type == "zTXt") {
                 var nullIdx = -1
-                for (i in data until crc) { if (bytes[i] == 0.toByte()) { nullIdx = i; break } }
-                if (nullIdx in data until crc) {
-                    val keyword = String(bytes, data, nullIdx - data, Charsets.US_ASCII)
-                    val text = String(bytes, nullIdx + 1, crc - nullIdx - 1, Charsets.UTF_8)
-                    if (keyword == "chara") return text
+                for (i in dataStart until crc) { if (bytes[i] == 0.toByte()) { nullIdx = i; break } }
+                if (nullIdx in dataStart until crc) {
+                    val keyword = String(bytes, dataStart, nullIdx - dataStart, Charsets.US_ASCII)
+                    val textBytes = bytes.copyOfRange(nullIdx + 1, crc)
+
+                    when (keyword) {
+                        "chara" -> return String(textBytes, Charsets.UTF_8)
+                        "v3chara" -> {
+                            // V3 有时存为 Base64
+                            val decoded = String(textBytes, Charsets.UTF_8)
+                            return try {
+                                String(android.util.Base64.decode(decoded, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                            } catch (_: Exception) { decoded }
+                        }
+                        "v3" -> {
+                            // V3 格式存为 Base64-encoded JSON
+                            try {
+                                val decoded = android.util.Base64.decode(textBytes, android.util.Base64.NO_WRAP)
+                                return String(decoded, Charsets.UTF_8)
+                            } catch (_: Exception) { /* 继续搜索其他 chunk */ }
+                        }
+                    }
                 }
             }
 

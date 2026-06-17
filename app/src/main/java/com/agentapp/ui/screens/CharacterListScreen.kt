@@ -87,9 +87,17 @@ fun CharacterListScreen(
             scope.launch(Dispatchers.IO) {
                 try {
                     val inputStream = context.contentResolver.openInputStream(uri)
-                    val tempFile = File(context.cacheDir, "import_${System.currentTimeMillis()}.png")
+                    val ext = context.contentResolver.getType(uri)?.let { mime ->
+                        when {
+                            mime.contains("png") -> "png"
+                            mime.contains("json") -> "json"
+                            else -> "png"
+                        }
+                    } ?: "png"
+                    val tempFile = File(context.cacheDir, "import_${System.currentTimeMillis()}.$ext")
                     inputStream?.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
-                    characterListViewModel.importFromFile(tempFile)
+                    val result = characterListViewModel.importFromFile(tempFile)
+                    if (result) characterListViewModel.refresh()
                     tempFile.delete()
                 } catch (_: Exception) { }
             }
