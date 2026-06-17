@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,6 +43,7 @@ fun MainScreen(
     worldBookViewModel: WorldBookViewModel
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var isChatOpen by remember { mutableStateOf(false) }
 
     val tabs = listOf("角色", "对话", "世界书", "设置")
     val tabEmojis = listOf("🌸", "💬", "📖", "⚙️")
@@ -49,6 +51,7 @@ fun MainScreen(
 
     Scaffold(
         bottomBar = {
+            if (!isChatOpen) {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
@@ -80,17 +83,20 @@ fun MainScreen(
                     )
                 }
             }
+            } // end if (!isChatOpen)
         }
     ) { padding ->
         when (selectedTab) {
             0 -> CharacterListScreen(
                 modifier = Modifier.padding(padding),
-                characterListViewModel = characterListViewModel
+                characterListViewModel = characterListViewModel,
+                onChatOpened = { isChatOpen = it }
             )
             1 -> ChatListScreen(
                 modifier = Modifier.padding(padding),
                 chatListViewModel = chatListViewModel,
-                characterListViewModel = characterListViewModel
+                characterListViewModel = characterListViewModel,
+                onChatOpened = { isChatOpen = it }
             )
             2 -> WorldBookScreen(
                 worldBookViewModel = worldBookViewModel,

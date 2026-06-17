@@ -28,6 +28,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,11 +45,17 @@ import com.agentapp.viewmodel.CharacterListViewModel
 fun ChatListScreen(
     modifier: Modifier = Modifier,
     chatListViewModel: ChatListViewModel,
-    characterListViewModel: CharacterListViewModel
+    characterListViewModel: CharacterListViewModel,
+    onChatOpened: (Boolean) -> Unit = {}
 ) {
     val sessions by chatListViewModel.sessions.collectAsState()
     var selectedSessionId by remember { mutableStateOf<String?>(null) }
     var selectedCharacterName by remember { mutableStateOf("") }
+
+    // 通知 MainScreen 隐藏底部导航
+    LaunchedEffect(selectedSessionId) {
+        onChatOpened(selectedSessionId != null)
+    }
 
     // 进入聊天
     if (selectedSessionId != null) {
