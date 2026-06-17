@@ -74,7 +74,7 @@ class WorldRepository(private val context: Context) {
             .distinct()
     }
 
-    /** 加载条目并应用共同过滤：启用态 + 关键词 + 概率 + 优先级排序。空关键词=全局始终触发 */
+    /** 加载条目并应用过滤：constant 始终触发，否则按关键词匹配 + 概率 + 优先级排序 */
     private suspend fun loadAndFilterEntries(
         messages: List<Message>,
         characterId: String?
@@ -88,7 +88,7 @@ class WorldRepository(private val context: Context) {
         return entries
             .filter { it.enabled }
             .filter { entity ->
-                // 无关键词 = 全局条目，始终触发
+                // 选择词为空 = 始终触发（类似酒馆的 constant: true）
                 entity.keys.isEmpty() || entity.keys.any { key -> text.contains(key, ignoreCase = true) }
             }
             .filter { entity ->
