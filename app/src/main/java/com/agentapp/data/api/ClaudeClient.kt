@@ -3,9 +3,11 @@ package com.agentapp.data.api
 import com.agentapp.data.model.ApiConfig
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.encodeToString
@@ -164,7 +166,7 @@ class ClaudeClient(private val config: ApiConfig) {
         }
 
         awaitClose { }
-    }
+    }.flowOn(Dispatchers.IO)
 
     suspend fun chatSync(messages: List<Message>): String {
         val claudeMessages = messages
