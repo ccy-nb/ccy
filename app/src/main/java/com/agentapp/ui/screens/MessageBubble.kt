@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
 import com.agentapp.ui.components.MarkdownText
+import com.agentapp.ui.components.StatusPanel
+import com.agentapp.data.repository.VariableRepository
 import com.agentapp.ui.theme.ChatBubbleAssistant
 import com.agentapp.ui.theme.ChatBubbleUser
 import com.agentapp.ui.theme.DarkBubbleAssist
