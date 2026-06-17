@@ -356,9 +356,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (_: Exception) { /* 忽略 Persona 加载失败 */ }
 
-        // 角色 system prompt
+        // 角色定义
         if (character != null) {
-            sysContent.append(character.buildSystemPrompt())
+            sysContent.append(character.buildCharacterPrompt())
+            sysContent.appendLine()
+        }
+
+        // 深度提示（独立注入，在角色定义之后、世界书 AFTER_SYSTEM 之前）
+        if (character != null && character.depthPrompt.isNotBlank()) {
+            sysContent.appendLine("=== 深度指令 ===")
+            sysContent.appendLine(character.depthPrompt)
             sysContent.appendLine()
         }
 
