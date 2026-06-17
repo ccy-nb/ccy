@@ -79,10 +79,16 @@ class CharacterRepository(private val context: Context) {
 
     /**
      * 从 PNG 字节中提取 SillyTavern 的角色 JSON。
-     * 支持 V1/V2 (keyword="chara") 和 V3 (keyword="v3chara" 或 base64-encoded "v3")。
+     * 支持多种格式：
+     * - V1/V2: keyword="chara"
+     * - V3: keyword="v3chara" (可能 Base64) 或 "v3" (Base64)
+     * - 类脑/CCV3: keyword="ccv3" (Base64)
+     * - Character.AI 等: keyword="character"
+     * - NovelAI/ComfyUI 嵌入: Comment chunk 中搜索角色 JSON
      */
     private fun extractPngCharaText(bytes: ByteArray): String? {
         var pos = 8
+        var commentText: String? = null
         while (pos + 8 <= bytes.size) {
             val length = ((bytes[pos].toInt() and 0xFF) shl 24) or
                          ((bytes[pos + 1].toInt() and 0xFF) shl 16) or
@@ -98,29 +104,40 @@ class CharacterRepository(private val context: Context) {
                 if (nullIdx in dataStart until crc) {
                     val keyword = String(bytes, dataStart, nullIdx - dataStart, Charsets.US_ASCII)
                     val textBytes = bytes.copyOfRange(nullIdx + 1, crc)
+                    val text = String(textBytes, Charsets.UTF_8)
 
                     when (keyword) {
-                        "chara" -> return String(textBytes, Charsets.UTF_8)
-                        "v3chara" -> {
-                            // V3 有时存为 Base64
-                            val decoded = String(textBytes, Charsets.UTF_8)
+                        "chara", "character" -> return text
+                        "v3chara", "ccv3" -> {
                             return try {
-                                String(android.util.Base64.decode(decoded, android.util.Base64.NO_WRAP), Charsets.UTF_8)
-                            } catch (_: Exception) { decoded }
+                                String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                            } catch (_: Exception) { text }
                         }
                         "v3" -> {
-                            // V3 格式存为 Base64-encoded JSON
                             try {
                                 val decoded = android.util.Base64.decode(textBytes, android.util.Base64.NO_WRAP)
                                 return String(decoded, Charsets.UTF_8)
-                            } catch (_: Exception) { /* 继续搜索其他 chunk */ }
+                            } catch (_: Exception) { /* 继续搜索 */ }
                         }
+                        "Comment" -> { commentText = text }
                     }
                 }
             }
 
             if (type == "IEND") break
             pos = crc + 4
+        }
+
+        // 回退：尝试从 Comment chunk 的 JSON 中提取角色数据（某些工具生成此格式）
+        if (commentText != null) {
+            return try {
+                val root = json.parseToJsonElement(commentText).jsonObject
+                if (root.containsKey("name") && root.containsKey("description")) {
+                    commentText
+                } else if (root.containsKey("char_data")) {
+                    root["char_data"]?.toString()
+                } else null
+            } catch (_: Exception) { null }
         }
         return null
     }
