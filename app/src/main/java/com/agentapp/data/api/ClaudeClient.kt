@@ -123,9 +123,10 @@ class ClaudeClient(private val config: ApiConfig) {
             }
 
             val reader = BufferedReader(InputStreamReader(bodyStream))
-            var line: String?
+            var line: String? = null
             var currentEvent = ""
-            while (reader.readLine().also { line = it } != null) {
+            var shouldStop = false
+            while (!shouldStop && reader.readLine().also { line = it } != null) {
                 val l = line ?: continue
                 when {
                     l.startsWith("event: ") -> { currentEvent = l.removePrefix("event: ").trim() }
@@ -139,7 +140,8 @@ class ClaudeClient(private val config: ApiConfig) {
                             } catch (_: Exception) {
                                 trySend("[ERROR: ${data.take(100)}]")
                             }
-                            break
+                            shouldStop = true
+                            continue
                         }
                         // 只处理 content_block_delta 事件的 data
                         if (currentEvent == "content_block_delta") {
@@ -147,9 +149,7 @@ class ClaudeClient(private val config: ApiConfig) {
                                 val chunk = json.decodeFromString<ClaudeStreamChunk>(data)
                                 val text = chunk.delta?.text ?: ""
                                 if (text.isNotEmpty()) trySend(text)
-                            } catch (_: Exception) {
-                                trySend("[WARN: 跳过异常数据: ${data.take(80)}]")
-                            }
+                            } catch (_: Exception) { /* skip malformed SSE lines */ }
                         }
                         currentEvent = ""
                     }

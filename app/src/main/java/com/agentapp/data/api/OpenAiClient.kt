@@ -94,17 +94,19 @@ class OpenAiClient(private val config: ApiConfig) {
         )
 
         val url = "${config.baseUrl.trimEnd('/')}/chat/completions"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", "Bearer ${config.apiKey}")
-            .addHeader("Accept", "text/event-stream")
-            .post(json.encodeToString(requestBody).toRequestBody(jsonMedia))
-            .build()
 
         try {
+            val bodyJson = json.encodeToString(requestBody)
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer ${config.apiKey}")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Accept", "text/event-stream")
+                .post(bodyJson.toRequestBody(jsonMedia))
+                .build()
+
             val response = client.newCall(request).execute()
 
-            // 检查 HTTP 状态码
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: ""
                 val errMsg = try {
@@ -126,34 +128,39 @@ class OpenAiClient(private val config: ApiConfig) {
             }
 
             val reader = BufferedReader(InputStreamReader(bodyStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
+            var line: String? = null
+            var shouldStop = false
+            while (!shouldStop && reader.readLine().also { line = it } != null) {
                 val l = line ?: continue
                 if (l.startsWith("data: ")) {
                     val data = l.removePrefix("data: ").trim()
-                    if (data == "[DONE]") break
+                    if (data == "[DONE]") {
+                        shouldStop = true
+                        continue
+                    }
                     try {
                         val chunk = json.decodeFromString<ChatCompletionResponse>(data)
-                        // 检查 SSE 中的错误
-                        val errMsg = chunk.error?.message
-                        if (errMsg != null) {
-                            trySend("[ERROR: $errMsg]")
-                            break
+                        val err = chunk.error?.message
+                        if (err != null) {
+                            trySend("[ERROR: $err]")
+                            shouldStop = true
+                            continue
                         }
                         val content = chunk.choices.firstOrNull()?.delta?.content ?: ""
                         if (content.isNotEmpty()) {
                             trySend(content)
                         }
-                    } catch (_: Exception) {
-                        if (data != "[DONE]") trySend("[WARN: 跳过异常数据: ${data.take(80)}]") else {}
-                    }
+                    } catch (_: Exception) { /* skip malformed SSE lines */ }
                 }
             }
             reader.close()
             response.close()
             close()
         } catch (e: Exception) {
-            trySend("[ERROR: ${e.message}]")
+            val cls = e.javaClass.simpleName
+            val msg = e.message ?: "null"
+            val cause = e.cause?.let { " ← ${it.javaClass.simpleName}: ${it.message}" } ?: ""
+            trySend("[ERROR: $cls: $msg$cause]")
             close()
         }
 

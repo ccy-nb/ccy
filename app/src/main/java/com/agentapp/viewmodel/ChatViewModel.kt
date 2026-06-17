@@ -251,6 +251,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
 
                     val reply = builder.toString()
+                    // DEBUG: 写原始响应用到下载文件夹
+                    try {
+                        val debugFile = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "agent_debug.txt")
+                        debugFile.writeText("=== API Reply ===\nProvider: ${cfg.provider}\nModel: ${cfg.model}\nURL: ${cfg.baseUrl}\nKeyLen: ${cfg.apiKey.length}\n---\n$reply\n=== End ===")
+                    } catch (_: Exception) { }
                     if (reply.isNotEmpty()) {
                         if (reply.startsWith("[ERROR:")) {
                             val raw = reply.removePrefix("[ERROR: ").removeSuffix("]").trim()
@@ -293,7 +298,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         e is java.net.UnknownHostException -> "无法连接服务器，请检查网络和 API 地址"
                         e is java.net.SocketTimeoutException -> "连接超时，请检查网络和 API 地址"
                         e is java.io.IOException && e.message != null -> e.message!!
-                        else -> e.message ?: "${e.javaClass.simpleName}"
+                        else -> {
+                            val msg = e.message ?: ""
+                            val cls = e.javaClass.simpleName
+                            val cause = e.cause?.let { " ← ${it.javaClass.simpleName}: ${it.message ?: ""}" } ?: ""
+                            if (msg.isNotBlank()) msg else "$cls$cause"
+                        }
                     }
                     val em = Message(
                         role = Role.ASSISTANT,
