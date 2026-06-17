@@ -74,38 +74,46 @@ class CharacterRepository(private val context: Context) {
         val worldEntries: List<com.agentapp.data.model.WorldEntry> = emptyList()
     )
 
-    /** 解析角色 JSON，自动提取 SillyTavern data 包裹层 + character_book + depth_prompt */
+    /** 解析角色 JSON，自动提取 SillyTavern data 包裹层 + character_book + 全部 V3 字段 */
     fun parseCharacterWithWorldBook(text: String, imagePath: String? = null): ImportResult? {
         return try {
             val root = json.parseToJsonElement(text).jsonObject
             val inner = root["data"]?.jsonObject ?: root
+            val rootExt = root["extensions"]?.jsonObject
+            val innerExt = inner["extensions"]?.jsonObject
 
-            // 提取 depth_prompt → 合并到 system prompt
-            val depthPrompt = root["extensions"]?.jsonObject
-                ?.get("depth_prompt")?.jsonObject
-                ?.get("prompt")?.jsonPrimitive?.content ?:
-                inner["extensions"]?.jsonObject
-                    ?.get("depth_prompt")?.jsonObject
-                    ?.get("prompt")?.jsonPrimitive?.content ?: ""
+            // 基本解码
+            val rawChar = json.decodeFromJsonElement<Character>(inner)
 
-            // 提取 creator_notes
+            // 缺失字段从顶层补充
             val creatorNotes = inner["creator_notes"]?.jsonPrimitive?.content
-                ?: root["creator_notes"]?.jsonPrimitive?.content
                 ?: root["creatorcomment"]?.jsonPrimitive?.content ?: ""
 
-            // 构建完整的 system prompt
-            val rawChar = json.decodeFromJsonElement<Character>(inner)
-            val extraPrompt = listOfNotNull(
-                depthPrompt.takeIf { it.isNotBlank() },
-                creatorNotes.takeIf { it.isNotBlank() }
-            ).joinToString("\n\n")
-            val character = if (extraPrompt.isNotBlank()) {
-                rawChar.copy(systemPrompt = if (rawChar.systemPrompt.isNotBlank())
-                    rawChar.systemPrompt + "\n\n" + extraPrompt else extraPrompt)
-            } else rawChar
+            val depthPrompt = rootExt?.get("depth_prompt")?.jsonObject?.get("prompt")?.jsonPrimitive?.content
+                ?: innerExt?.get("depth_prompt")?.jsonObject?.get("prompt")?.jsonPrimitive?.content ?: ""
 
-            // 设置头像路径
-            val finalChar = if (imagePath != null) character.copy(avatarUri = imagePath) else character
+            val worldName = innerExt?.get("world")?.jsonPrimitive?.content
+                ?: rootExt?.get("world")?.jsonPrimitive?.content ?: ""
+
+            val talkativeness = innerExt?.get("talkativeness")?.jsonPrimitive?.doubleOrNull?.toFloat()
+                ?: root["talkativeness"]?.jsonPrimitive?.doubleOrNull?.toFloat() ?: 0.5f
+
+            val fav = innerExt?.get("fav")?.jsonPrimitive?.booleanOrNull
+                ?: root["fav"]?.jsonPrimitive?.booleanOrNull ?: false
+
+            val specVal = root["spec"]?.jsonPrimitive?.content ?: ""
+            val specVersionVal = root["spec_version"]?.jsonPrimitive?.content ?: ""
+
+            val character = rawChar.copy(
+                creatorNotes = creatorNotes.ifBlank { rawChar.creatorNotes },
+                depthPrompt = depthPrompt.ifBlank { rawChar.depthPrompt },
+                worldName = worldName.ifBlank { rawChar.worldName },
+                talkativeness = if (rawChar.talkativeness == 0.5f) talkativeness else rawChar.talkativeness,
+                fav = fav || rawChar.fav,
+                spec = specVal.ifBlank { rawChar.spec },
+                specVersion = specVersionVal.ifBlank { rawChar.specVersion },
+                avatarUri = imagePath ?: rawChar.avatarUri
+            )
 
             // 提取 character_book → WorldEntry 列表
             val bookJson = root["data"]?.jsonObject?.get("character_book")?.jsonObject
@@ -145,7 +153,7 @@ class CharacterRepository(private val context: Context) {
                 }
             }
 
-            ImportResult(finalChar, entries)
+            ImportResult(character, entries)
         } catch (_: Exception) {
             // 回退: 直接解析不带世界书
             try {
@@ -252,8 +260,22 @@ private fun CharacterEntity.toDomain() = Character(
     personality = personality,
     scenario = scenario,
     greeting = greeting,
-    avatarUri = avatarUri,
+    mesExample = mesExample,
     systemPrompt = systemPrompt,
+    creatorNotes = creatorNotes,
+    postHistoryInstructions = postHistoryInstructions,
+    alternateGreetings = alternateGreetings,
+    nicknames = nicknames,
+    tags = tags,
+    creator = creator,
+    characterVersion = characterVersion,
+    spec = spec,
+    specVersion = specVersion,
+    talkativeness = talkativeness,
+    fav = fav,
+    depthPrompt = depthPrompt,
+    worldName = worldName,
+    avatarUri = avatarUri,
     worldBookEnabled = worldBookEnabled,
     createdAt = createdAt
 )
@@ -265,8 +287,22 @@ private fun Character.toEntity() = CharacterEntity(
     personality = personality,
     scenario = scenario,
     greeting = greeting,
-    avatarUri = avatarUri,
+    mesExample = mesExample,
     systemPrompt = systemPrompt,
+    creatorNotes = creatorNotes,
+    postHistoryInstructions = postHistoryInstructions,
+    alternateGreetings = alternateGreetings,
+    nicknames = nicknames,
+    tags = tags,
+    creator = creator,
+    characterVersion = characterVersion,
+    spec = spec,
+    specVersion = specVersion,
+    talkativeness = talkativeness,
+    fav = fav,
+    depthPrompt = depthPrompt,
+    worldName = worldName,
+    avatarUri = avatarUri,
     worldBookEnabled = worldBookEnabled,
     createdAt = createdAt
 )
