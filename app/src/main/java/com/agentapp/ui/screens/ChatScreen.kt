@@ -167,7 +167,12 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(bottom = 72.dp)  // 底部导航栏高度，避免输入框被遮挡
+            ) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = inputText,
