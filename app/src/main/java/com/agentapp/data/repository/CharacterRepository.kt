@@ -104,9 +104,20 @@ class CharacterRepository(private val context: Context) {
             val specVal = root["spec"]?.jsonPrimitive?.content ?: ""
             val specVersionVal = root["spec_version"]?.jsonPrimitive?.content ?: ""
 
+            // 清理前端专用标签 (我们暂不支持 HTML 渲染)
+            val cleanGreeting = if (rawChar.greeting.trim() in listOf("<SetupUI/>", "", "<SetupUI />"))
+                "你好，我是${rawChar.name.ifEmpty { "..." }}，很高兴认识你。"
+            else rawChar.greeting
+
+            val cleanDepthPrompt = depthPrompt
+                .replace(Regex("<StatusPlaceHolder[^>]*/?>"), "(状态面板)")
+                .replace(Regex("<SetupUI[^>]*/?>"), "")
+                .trim()
+
             val character = rawChar.copy(
+                greeting = cleanGreeting,
                 creatorNotes = creatorNotes.ifBlank { rawChar.creatorNotes },
-                depthPrompt = depthPrompt.ifBlank { rawChar.depthPrompt },
+                depthPrompt = cleanDepthPrompt.ifBlank { rawChar.depthPrompt },
                 worldName = worldName.ifBlank { rawChar.worldName },
                 talkativeness = if (rawChar.talkativeness == 0.5f) talkativeness else rawChar.talkativeness,
                 fav = fav || rawChar.fav,
@@ -138,9 +149,9 @@ class CharacterRepository(private val context: Context) {
                         }
                         val probability = e["selective"]?.jsonPrimitive?.doubleOrNull?.toFloat() ?: 1.0f
 
-                        if (allKeys.isNotEmpty() && content.isNotBlank()) {
+                        if (content.isNotBlank()) {
                             entries.add(com.agentapp.data.model.WorldEntry(
-                                keys = allKeys,
+                                keys = allKeys.ifEmpty { listOf("(全局)") },
                                 content = if (comment.isNotBlank()) "$content\n\n($comment)" else content,
                                 enabled = enabled,
                                 priority = priority,
