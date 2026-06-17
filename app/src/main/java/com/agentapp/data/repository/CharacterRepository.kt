@@ -116,10 +116,15 @@ class CharacterRepository(private val context: Context) {
                 .replace(Regex("<SetupUI[^>]*/?>"), "")
                 .trim()
 
+            // 提取 v3_style
+            val v3Style = innerExt?.get("v3_style")?.jsonPrimitive?.content
+                ?: rootExt?.get("v3_style")?.jsonPrimitive?.content ?: ""
+
             val character = rawChar.copy(
                 greeting = cleanGreeting,
                 creatorNotes = creatorNotes.ifBlank { rawChar.creatorNotes },
                 depthPrompt = cleanDepthPrompt.ifBlank { rawChar.depthPrompt },
+                v3Style = v3Style.ifBlank { rawChar.v3Style },
                 worldName = worldName.ifBlank { rawChar.worldName },
                 talkativeness = if (rawChar.talkativeness == 0.5f) talkativeness else rawChar.talkativeness,
                 fav = fav || rawChar.fav,
@@ -346,6 +351,7 @@ private fun Character.toEntity() = CharacterEntity(
     talkativeness = talkativeness,
     fav = fav,
     depthPrompt = depthPrompt,
+    v3Style = v3Style,
     worldName = worldName,
     avatarUri = avatarUri,
     worldBookEnabled = worldBookEnabled,

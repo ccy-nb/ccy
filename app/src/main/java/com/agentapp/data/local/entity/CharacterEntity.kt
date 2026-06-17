@@ -25,6 +25,7 @@ data class CharacterEntity(
     val talkativeness: Float,
     val fav: Boolean,
     val depthPrompt: String,
+    val v3Style: String,
     val worldName: String,
     val avatarUri: String,
     val worldBookEnabled: Boolean = true,

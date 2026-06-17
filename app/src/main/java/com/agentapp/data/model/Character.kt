@@ -32,6 +32,8 @@ data class Character(
     val talkativeness: Float = 0.5f,
     val fav: Boolean = false,
     val depthPrompt: String = "",
+    @kotlinx.serialization.SerialName("v3_style")
+    val v3Style: String = "",
     @kotlinx.serialization.SerialName("world")
     val worldName: String = "",
     val avatarUri: String = "",
