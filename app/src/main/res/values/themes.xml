@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose 使用 AgentAppTheme 渲染，此 theme 仅用于 Activity 启动窗口 -->
+    <style name="Theme.AgentApp" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

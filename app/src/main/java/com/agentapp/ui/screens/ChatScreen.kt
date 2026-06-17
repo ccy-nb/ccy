@@ -1,0 +1,354 @@
+package com.agentapp.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.agentapp.data.estimateChatTokens
+import com.agentapp.data.model.Message
+import com.agentapp.data.model.Role
+import com.agentapp.ui.theme.Pink
+import com.agentapp.ui.theme.TextGray
+import com.agentapp.viewmodel.ChatViewModel
+
+/**
+ * 聊天界面。
+ * 通过 ChatViewModel 管理状态，CuteMessageBubble / TypingIndicator 在 MessageBubble.kt，
+ * MessageActionDialog / EditMessageDialog 在 ChatDialogs.kt。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatScreen(
+    sessionId: String,
+    characterName: String,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    chatViewModel: ChatViewModel = viewModel()
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(sessionId) {
+        chatViewModel.loadSession(sessionId, characterName)
+    }
+
+    val currentSession by chatViewModel.currentSession.collectAsState()
+    val inputText by chatViewModel.inputText.collectAsState()
+    val isLoading by chatViewModel.isLoading.collectAsState()
+    val streamingText by chatViewModel.streamingText.collectAsState()
+    val allSessions by chatViewModel.allSessions.collectAsState()
+    val showSearch by chatViewModel.showSearch.collectAsState()
+    val searchQuery by chatViewModel.searchQuery.collectAsState()
+    var showMessageActions by remember { mutableStateOf<String?>(null) }
+    var editMessageId by remember { mutableStateOf<String?>(null) }
+    var editText by remember { mutableStateOf("") }
+    var sessionExpanded by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    val session = currentSession
+    val matchedWorldKeywords by chatViewModel.matchedWorldKeywords.collectAsState()
+
+    // === 消息操作弹窗 ===
+    if (showMessageActions != null) {
+        val msgId = showMessageActions!!
+        val msg = session?.messages?.find { it.id == msgId }
+        MessageActionDialog(
+            msgId = msgId,
+            message = msg,
+            onDismiss = { showMessageActions = null },
+            onRegenerate = { msg?.let { chatViewModel.regenerate(it) } },
+            onEdit = {
+                editMessageId = msgId
+                editText = msg?.content ?: ""
+            },
+            onDelete = { chatViewModel.deleteMessage(msgId) }
+        )
+    }
+
+    // === 编辑消息弹窗 ===
+    if (editMessageId != null) {
+        EditMessageDialog(
+            currentText = editText,
+            onTextChange = { editText = it },
+            onSave = {
+                editMessageId?.let { chatViewModel.editMessage(it, editText) }
+                editMessageId = null
+            },
+            onSaveAndRegenerate = {
+                editMessageId?.let { chatViewModel.editAndRegenerate(it, editText) }
+                editMessageId = null
+            },
+            onDismiss = { editMessageId = null }
+        )
+    }
+
+    // 自动滚动到底部
+    LaunchedEffect(session?.messages?.size) {
+        if (session != null && session.messages.isNotEmpty()) {
+            listState.animateScrollToItem(session.messages.size - 1)
+        }
+    }
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text("♡ $characterName", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { chatViewModel.toggleSearch() }) {
+                        Text("🔍", fontSize = 16.sp)
+                    }
+                    IconButton(onClick = {
+                        if (session != null) {
+                            val sb = StringBuilder()
+                            session.messages.forEach { msg ->
+                                val role = if (msg.role == Role.USER) "你" else characterName
+                                sb.appendLine("[$role]")
+                                sb.appendLine(msg.content)
+                                sb.appendLine()
+                            }
+                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
+                                putExtra(android.content.Intent.EXTRA_SUBJECT, "与 $characterName 的对话")
+                            }
+                            context.startActivity(android.content.Intent.createChooser(intent, "导出对话"))
+                        }
+                    }) { Text("📤", fontSize = 16.sp) }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        },
+        bottomBar = {
+            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+                Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { chatViewModel.setInputText(it) },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("输入消息...", color = TextGray) },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Pink,
+                            unfocusedBorderColor = Color(0xFFE8DDE8)
+                        ),
+                        maxLines = 4,
+                        enabled = !isLoading
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { chatViewModel.sendMessage() },
+                        enabled = inputText.isNotBlank() && !isLoading
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "发送",
+                            tint = if (inputText.isNotBlank() && !isLoading) Pink else TextGray
+                        )
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        if (session == null) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("💬", fontSize = 48.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text("加载中...", color = TextGray)
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { chatViewModel.loadSession(sessionId, characterName) }) {
+                        Text("重试", color = Pink)
+                    }
+                }
+            }
+            return@Scaffold
+        }
+
+        val showWelcome = session.messages.isEmpty() && !isLoading && streamingText.isEmpty()
+
+        // 所有内容用 Column 垂直排列，避免重叠
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // 对话切换器
+            if (allSessions.size > 1) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                            .clickable { sessionExpanded = true }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "💬 对话 ${allSessions.indexOf(session) + 1}/${allSessions.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextGray
+                        )
+                        val tokenCount = remember(session.messages.size) {
+                            estimateChatTokens(session.messages)
+                        }
+                        Text(
+                            "$tokenCount tok",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (tokenCount > 3000) Color(0xFFFF6B8A) else TextGray
+                        )
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { chatViewModel.createNewSession() }) {
+                            Text("＋新建", color = Pink, fontSize = 13.sp)
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = sessionExpanded,
+                        onDismissRequest = { sessionExpanded = false }
+                    ) {
+                        allSessions.forEachIndexed { index, s ->
+                            val preview = s.messages.firstOrNull()?.content?.take(30) ?: "空对话"
+                            DropdownMenuItem(
+                                text = { Text("对话 ${index + 1}: $preview", maxLines = 1) },
+                                onClick = {
+                                    chatViewModel.switchSession(s.id)
+                                    sessionExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            val filteredMessages = if (showSearch && searchQuery.isNotBlank()) {
+                session.messages.filter { it.content.contains(searchQuery, ignoreCase = true) }
+            } else session.messages
+
+            // 搜索栏
+            if (showSearch) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { chatViewModel.setSearchQuery(it) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    placeholder = { Text("搜索消息...", color = TextGray) },
+                    leadingIcon = { Text("🔍", fontSize = 14.sp) },
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Pink,
+                        unfocusedBorderColor = Color(0xFFE8DDE8)
+                    )
+                )
+            }
+
+            if (showWelcome) {
+                // 欢迎页
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("💬", fontSize = 48.sp)
+                        Spacer(Modifier.height(16.dp))
+                        Text("和 $characterName 开始聊天吧~", style = MaterialTheme.typography.titleMedium, color = TextGray)
+                        Spacer(Modifier.height(4.dp))
+                        Text("在下方输入消息发送 ✨", style = MaterialTheme.typography.bodySmall, color = TextGray)
+                    }
+                }
+            } else {
+                // 世界书关键词标签
+                if (matchedWorldKeywords.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)
+                    ) {
+                        Text("🔖", fontSize = 12.sp)
+                        matchedWorldKeywords.take(6).forEach { keyword ->
+                            Text(
+                                text = keyword, fontSize = 11.sp,
+                                color = Color(0xFF8E7CC3), fontWeight = FontWeight.Medium,
+                                modifier = Modifier.background(Color(0xFFF0ECF7), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                        if (matchedWorldKeywords.size > 6) {
+                            Text("+${matchedWorldKeywords.size - 6}", fontSize = 11.sp, color = TextGray)
+                        }
+                    }
+                }
+
+                // 消息列表
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    item { Spacer(Modifier.height(4.dp)) }
+                    items(filteredMessages, key = { it.id }) { msg ->
+                        CuteMessageBubble(
+                            message = msg,
+                            isUser = msg.role == Role.USER,
+                            onLongClick = { showMessageActions = msg.id },
+                            onSpeak = { chatViewModel.speakText(msg.content) },
+                            onRegenerate = if (msg.role == Role.ASSISTANT) ({ chatViewModel.regenerate(msg) }) else null,
+                            onEdit = { editMessageId = msg.id; editText = msg.content },
+                            onDelete = { chatViewModel.deleteMessage(msg.id) }
+                        )
+                    }
+                    if (streamingText.isNotEmpty()) {
+                        item {
+                            CuteMessageBubble(
+                                message = Message(role = Role.ASSISTANT, content = streamingText),
+                                isUser = false
+                            )
+                        }
+                    } else if (isLoading) {
+                        item { TypingIndicator() }
+                    }
+                    item { Spacer(Modifier.height(4.dp)) }
+                }
+            }
+        }
+    }
+}

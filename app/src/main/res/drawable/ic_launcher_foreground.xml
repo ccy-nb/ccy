@@ -1,0 +1,56 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 圆角背景 -->
+    <path
+        android:fillColor="#FF9EB5"
+        android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" />
+    <!-- 白色内圆 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-38,0a38,38 0,1 1,76 0a38,38 0,1 1,-76 0" />
+    <!-- 粉色外框眼睛左 -->
+    <path
+        android:fillColor="#FF9EB5"
+        android:pathData="M42,46m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"
+        android:strokeWidth="2"
+        android:strokeColor="#FF9EB5" />
+    <!-- 粉色外框眼睛右 -->
+    <path
+        android:fillColor="#FF9EB5"
+        android:pathData="M66,46m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"
+        android:strokeWidth="2"
+        android:strokeColor="#FF9EB5" />
+    <!-- 白色瞳孔左 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,44m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+    <!-- 白色瞳孔右 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,44m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+    <!-- 腮红左 -->
+    <path
+        android:fillColor="#FFD0D8"
+        android:pathData="M32,54m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <!-- 腮红右 -->
+    <path
+        android:fillColor="#FFD0D8"
+        android:pathData="M76,54m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <!-- 微笑 -->
+    <path
+        android:fillColor="#FF9EB5"
+        android:pathData="M42,62 Q54,76 66,62"
+        android:strokeWidth="3"
+        android:strokeColor="#FF9EB5" />
+    <!-- 蝴蝶结左 -->
+    <path
+        android:fillColor="#FF6B8A"
+        android:pathData="M22,32 Q28,26 34,32 Q28,38 22,32" />
+    <!-- 蝴蝶结右 -->
+    <path
+        android:fillColor="#FF6B8A"
+        android:pathData="M74,32 Q80,26 86,32 Q80,38 74,32" />
+</vector>
