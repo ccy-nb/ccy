@@ -29,6 +29,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepo = SettingsRepository(application)
     private val worldRepo = WorldRepository(application)
     private val personaRepo = com.agentapp.data.repository.PersonaRepository(application)
+    private val regexRepo = com.agentapp.data.repository.RegexRepository(application)
     private val apiFactory = ApiFactory()
 
     private val _currentSession = MutableStateFlow<ChatSession?>(null)
@@ -247,6 +248,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         streamJob = viewModelScope.launch {
             sendMutex.withLock {
                 val builder = StringBuilder()
+                val scripts = regexRepo.list()  // 一次性加载正则
                 try {
                     val cfg = settingsRepo.getApiConfigSync()
                     val character = characterRepo.get(session.characterId)
@@ -256,7 +258,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                     apiFactory.chatStream(cfg, apiMsgs).collect { chunk ->
                         builder.append(chunk)
-                        _streamingText.value = builder.toString()
+                        _streamingText.value = regexRepo.applyScripts(builder.toString(), scripts)
                     }
 
                     val reply = builder.toString()
@@ -270,7 +272,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             withContext(Dispatchers.Main) { _currentSession.value = fs }
                             chatRepo.save(fs)
                         } else {
-                            val am = Message(role = Role.ASSISTANT, content = reply)
+                            val processedReply = regexRepo.applyScripts(reply, scripts)
+                            val am = Message(role = Role.ASSISTANT, content = processedReply)
                             val fs = s.copy(messages = s.messages + am)
                             withContext(Dispatchers.Main) { _currentSession.value = fs }
                             chatRepo.save(fs)
@@ -280,7 +283,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     if (builder.isNotEmpty()) {
                         val s = _currentSession.value ?: return@withLock
-                        val pm = Message(role = Role.ASSISTANT, content = builder.toString() + "\n\n(回复未完成)")
+                        val partial = regexRepo.applyScripts(builder.toString(), scripts) + "\n\n(回复未完成)"
+                        val pm = Message(role = Role.ASSISTANT, content = partial)
                         val fs = s.copy(messages = s.messages + pm)
                         withContext(Dispatchers.Main) { _currentSession.value = fs }
                         chatRepo.save(fs)

@@ -68,11 +68,12 @@ class CharacterRepository(private val context: Context) {
         } catch (_: Exception) { null }
     }
 
-    /** 导入结果：角色 + 世界书 + 条目 */
+    /** 导入结果：角色 + 世界书 + 条目 + 正则脚本 */
     data class ImportResult(
         val character: Character,
         val worldBook: com.agentapp.data.model.WorldBook? = null,
-        val worldEntries: List<com.agentapp.data.model.WorldEntry> = emptyList()
+        val worldEntries: List<com.agentapp.data.model.WorldEntry> = emptyList(),
+        val regexScripts: List<com.agentapp.data.model.RegexScript> = emptyList()
     )
 
     /** 解析角色 JSON，自动提取 SillyTavern data 包裹层 + character_book + 全部 V3 字段 */
@@ -179,7 +180,25 @@ class CharacterRepository(private val context: Context) {
             // 条目关联到世界书
             val linkedEntries = entries.map { it.copy(worldBookId = worldBook?.id) }
 
-            ImportResult(character, worldBook, linkedEntries)
+            // 提取正则脚本 (regex_scripts)
+            val regexScripts = mutableListOf<com.agentapp.data.model.RegexScript>()
+            val regexArray = innerExt?.get("regex_scripts")?.jsonArray
+                ?: rootExt?.get("regex_scripts")?.jsonArray
+            if (regexArray != null) {
+                for (scriptEl in regexArray) {
+                    try {
+                        val s = scriptEl.jsonObject
+                        regexScripts.add(com.agentapp.data.model.RegexScript(
+                            name = s["scriptName"]?.jsonPrimitive?.content ?: "regex",
+                            findRegex = s["findRegex"]?.jsonPrimitive?.content ?: "",
+                            replaceString = s["replaceString"]?.jsonPrimitive?.content ?: "",
+                            characterId = character.id
+                        ))
+                    } catch (_: Exception) { }
+                }
+            }
+
+            ImportResult(character, worldBook, linkedEntries, regexScripts)
         } catch (_: Exception) {
             // 回退: 直接解析不带世界书
             try {

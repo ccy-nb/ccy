@@ -17,6 +17,7 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
     private val characterRepo = CharacterRepository(application)
     private val chatRepo = ChatRepository(application)
     private val worldRepo = com.agentapp.data.repository.WorldRepository(application)
+    private val regexRepo = com.agentapp.data.repository.RegexRepository(application)
 
     private val _characters = MutableStateFlow<List<Character>>(emptyList())
     val characters: StateFlow<List<Character>> = _characters.asStateFlow()
@@ -77,6 +78,11 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
             if (result.worldEntries.isNotEmpty()) {
                 val savedCount = worldRepo.saveAll(result.worldEntries)
                 android.util.Log.d("AgentApp", "世界书导入: ${result.worldBook?.name}, ${savedCount}/${result.worldEntries.size} 条")
+            }
+            // 导入正则脚本
+            if (result.regexScripts.isNotEmpty()) {
+                regexRepo.saveAll(result.regexScripts)
+                android.util.Log.d("AgentApp", "正则脚本导入: ${result.regexScripts.size} 条")
             }
             refresh()
             return result.character
