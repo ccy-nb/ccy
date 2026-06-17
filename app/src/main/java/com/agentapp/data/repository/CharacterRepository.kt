@@ -153,7 +153,7 @@ class CharacterRepository(private val context: Context) {
 
                         if (content.isNotBlank()) {
                             entries.add(com.agentapp.data.model.WorldEntry(
-                                keys = allKeys.ifEmpty { listOf("(全局)") },
+                                keys = allKeys,
                                 content = if (comment.isNotBlank()) "$content\n\n($comment)" else content,
                                 enabled = enabled,
                                 priority = priority,

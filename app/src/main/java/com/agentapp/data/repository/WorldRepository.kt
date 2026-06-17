@@ -74,7 +74,7 @@ class WorldRepository(private val context: Context) {
             .distinct()
     }
 
-    /** 加载条目并应用共同过滤：启用态 + 关键词 + 概率 + 优先级排序 */
+    /** 加载条目并应用共同过滤：启用态 + 关键词 + 概率 + 优先级排序。空关键词=全局始终触发 */
     private suspend fun loadAndFilterEntries(
         messages: List<Message>,
         characterId: String?
@@ -88,7 +88,8 @@ class WorldRepository(private val context: Context) {
         return entries
             .filter { it.enabled }
             .filter { entity ->
-                entity.keys.any { key -> text.contains(key, ignoreCase = true) }
+                // 无关键词 = 全局条目，始终触发
+                entity.keys.isEmpty() || entity.keys.any { key -> text.contains(key, ignoreCase = true) }
             }
             .filter { entity ->
                 entity.probability >= 1.0f || Random.nextFloat() <= entity.probability
