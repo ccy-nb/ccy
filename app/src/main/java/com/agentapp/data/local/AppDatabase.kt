@@ -10,10 +10,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.agentapp.data.local.dao.CharacterDao
 import com.agentapp.data.local.dao.ChatSessionDao
 import com.agentapp.data.local.dao.MessageDao
+import com.agentapp.data.local.dao.WorldBookDao
 import com.agentapp.data.local.dao.WorldEntryDao
 import com.agentapp.data.local.entity.CharacterEntity
 import com.agentapp.data.local.entity.ChatSessionEntity
 import com.agentapp.data.local.entity.MessageEntity
+import com.agentapp.data.local.entity.WorldBookEntity
 import com.agentapp.data.local.entity.WorldEntryEntity
 
 @TypeConverters(Converters::class)
@@ -22,20 +24,38 @@ import com.agentapp.data.local.entity.WorldEntryEntity
         CharacterEntity::class,
         ChatSessionEntity::class,
         MessageEntity::class,
+        WorldBookEntity::class,
         WorldEntryEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun characterDao(): CharacterDao
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun messageDao(): MessageDao
+    abstract fun worldBookDao(): WorldBookDao
     abstract fun worldEntryDao(): WorldEntryDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 新建 world_books 表
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS world_books (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL DEFAULT '',
+                        characterId TEXT DEFAULT NULL,
+                        createdAt INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                // world_entries 加 worldBookId 列
+                db.execSQL("ALTER TABLE world_entries ADD COLUMN worldBookId TEXT DEFAULT NULL")
+            }
+        }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -73,7 +93,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "agent_app.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { INSTANCE = it }
             }

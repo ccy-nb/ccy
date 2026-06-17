@@ -68,9 +68,10 @@ class CharacterRepository(private val context: Context) {
         } catch (_: Exception) { null }
     }
 
-    /** 导入结果：角色 + 世界书条目 */
+    /** 导入结果：角色 + 世界书 + 条目 */
     data class ImportResult(
         val character: Character,
+        val worldBook: com.agentapp.data.model.WorldBook? = null,
         val worldEntries: List<com.agentapp.data.model.WorldEntry> = emptyList()
     )
 
@@ -166,7 +167,19 @@ class CharacterRepository(private val context: Context) {
                 }
             }
 
-            ImportResult(character, entries)
+            // 创建世界书
+            val bookName = character.worldName.ifBlank { "${character.name} 世界书" }
+            val worldBook = if (entries.isNotEmpty()) {
+                com.agentapp.data.model.WorldBook(
+                    name = bookName,
+                    characterId = character.id
+                )
+            } else null
+
+            // 条目关联到世界书
+            val linkedEntries = entries.map { it.copy(worldBookId = worldBook?.id) }
+
+            ImportResult(character, worldBook, linkedEntries)
         } catch (_: Exception) {
             // 回退: 直接解析不带世界书
             try {

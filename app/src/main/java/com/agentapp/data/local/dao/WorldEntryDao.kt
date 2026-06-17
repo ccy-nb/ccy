@@ -16,6 +16,9 @@ interface WorldEntryDao {
     @Query("SELECT * FROM world_entries ORDER BY priority ASC, createdAt DESC")
     suspend fun list(): List<WorldEntryEntity>
 
+    @Query("SELECT * FROM world_entries WHERE worldBookId = :bookId ORDER BY priority ASC, createdAt DESC")
+    fun listByBookFlow(bookId: String): Flow<List<WorldEntryEntity>>
+
     @Query("SELECT * FROM world_entries WHERE (characterId IS NULL OR characterId = :characterId) ORDER BY priority ASC, createdAt DESC")
     suspend fun getByCharacter(characterId: String): List<WorldEntryEntity>
 

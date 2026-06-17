@@ -63,20 +63,24 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
         return true
     }
 
-    /** 导入并返回角色对象（用于 UI 反馈），同时导入世界书条目 */
+    /** 导入并返回角色对象（用于 UI 反馈），同时创建世界书并导入条目 */
     suspend fun importFromFileAndGet(file: java.io.File): Character? {
         val ext = file.extension.lowercase()
         if (ext == "png") {
-            // PNG: 尝试完整导入（含世界书）
             val result = characterRepo.importFromPngWithWorldBook(file) ?: return null
             characterRepo.save(result.character)
-            // 导入世界书条目 — 直接通过 DAO 保存并验证
-            val savedCount = worldRepo.saveAll(result.worldEntries)
-            android.util.Log.d("AgentApp", "世界书导入: 尝试保存 ${result.worldEntries.size} 条, 实际 $savedCount 条")
+            // 创建世界书
+            if (result.worldBook != null) {
+                worldRepo.saveBook(result.worldBook)
+            }
+            // 导入条目
+            if (result.worldEntries.isNotEmpty()) {
+                val savedCount = worldRepo.saveAll(result.worldEntries)
+                android.util.Log.d("AgentApp", "世界书导入: ${result.worldBook?.name}, ${savedCount}/${result.worldEntries.size} 条")
+            }
             refresh()
             return result.character
         }
-        // JSON 或其他
         val char = characterRepo.importFromFile(file) ?: return null
         characterRepo.save(char)
         refresh()

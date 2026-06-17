@@ -2,8 +2,10 @@ package com.agentapp.data.repository
 
 import android.content.Context
 import com.agentapp.data.local.AppDatabase
+import com.agentapp.data.local.entity.WorldBookEntity
 import com.agentapp.data.local.entity.WorldEntryEntity
 import com.agentapp.data.model.Message
+import com.agentapp.data.model.WorldBook
 import com.agentapp.data.model.WorldEntry
 import com.agentapp.data.model.WorldEntryPosition
 import kotlinx.coroutines.flow.Flow
@@ -12,6 +14,7 @@ import kotlin.random.Random
 
 class WorldRepository(private val context: Context) {
     private val db = AppDatabase.getInstance(context)
+    private val bookDao = db.worldBookDao()
     private val dao = db.worldEntryDao()
 
     fun listFlow(): Flow<List<WorldEntry>> {
@@ -26,16 +29,47 @@ class WorldRepository(private val context: Context) {
         dao.save(entry.toEntity())
     }
 
-    /** 批量保存，返回成功条数 */
+    /** 批量保存条目，返回成功条数 */
     suspend fun saveAll(entries: List<WorldEntry>): Int {
         var count = 0
         for (entry in entries) {
             try {
                 dao.save(entry.toEntity())
                 count++
-            } catch (_: Exception) { /* 跳过写入失败的条目 */ }
+            } catch (_: Exception) { }
         }
         return count
+    }
+
+    // === WorldBook CRUD ===
+
+    fun listBooksFlow(): Flow<List<WorldBook>> {
+        return bookDao.listFlow().map { entities -> entities.map { it.toDomain() } }
+    }
+
+    suspend fun listBooks(): List<WorldBook> {
+        return bookDao.list().map { it.toDomain() }
+    }
+
+    suspend fun getBook(id: String): WorldBook? {
+        return bookDao.get(id)?.toDomain()
+    }
+
+    suspend fun getBookByCharacter(characterId: String): WorldBook? {
+        return bookDao.getByCharacter(characterId)?.toDomain()
+    }
+
+    suspend fun saveBook(book: WorldBook) {
+        bookDao.save(book.toEntity())
+    }
+
+    suspend fun deleteBook(id: String) {
+        bookDao.deleteById(id)
+    }
+
+    /** 获取某世界书的所有条目 */
+    fun listEntriesByBookFlow(bookId: String): Flow<List<WorldEntry>> {
+        return dao.listByBookFlow(bookId).map { entities -> entities.map { it.toDomain() } }
     }
 
     suspend fun delete(id: String) {
@@ -102,6 +136,7 @@ class WorldRepository(private val context: Context) {
 
 private fun WorldEntryEntity.toDomain() = WorldEntry(
     id = id,
+    worldBookId = worldBookId,
     keys = keys,
     content = content,
     enabled = enabled,
@@ -114,6 +149,7 @@ private fun WorldEntryEntity.toDomain() = WorldEntry(
 
 private fun WorldEntry.toEntity() = WorldEntryEntity(
     id = id,
+    worldBookId = worldBookId,
     keys = keys,
     content = content,
     enabled = enabled,
@@ -121,5 +157,19 @@ private fun WorldEntry.toEntity() = WorldEntryEntity(
     characterId = characterId,
     probability = probability,
     position = position.name,
+    createdAt = createdAt
+)
+
+private fun WorldBookEntity.toDomain() = WorldBook(
+    id = id,
+    name = name,
+    characterId = characterId,
+    createdAt = createdAt
+)
+
+private fun WorldBook.toEntity() = WorldBookEntity(
+    id = id,
+    name = name,
+    characterId = characterId,
     createdAt = createdAt
 )
