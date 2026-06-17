@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 class CharacterListViewModel(application: Application) : AndroidViewModel(application) {
     private val characterRepo = CharacterRepository(application)
     private val chatRepo = ChatRepository(application)
+    private val worldRepo = com.agentapp.data.repository.WorldRepository(application)
 
     private val _characters = MutableStateFlow<List<Character>>(emptyList())
     val characters: StateFlow<List<Character>> = _characters.asStateFlow()
@@ -62,8 +63,22 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
         return true
     }
 
-    /** 导入并返回角色对象（用于 UI 反馈） */
+    /** 导入并返回角色对象（用于 UI 反馈），同时导入世界书条目 */
     suspend fun importFromFileAndGet(file: java.io.File): Character? {
+        val ext = file.extension.lowercase()
+        if (ext == "png") {
+            // PNG: 尝试完整导入（含世界书）
+            val result = characterRepo.importFromPngWithWorldBook(file)
+            if (result != null) {
+                characterRepo.save(result.character)
+                // 导入世界书条目
+                result.worldEntries.forEach { worldRepo.save(it) }
+                refresh()
+                return result.character
+            }
+            return null
+        }
+        // JSON 或其他
         val char = characterRepo.importFromFile(file) ?: return null
         characterRepo.save(char)
         refresh()

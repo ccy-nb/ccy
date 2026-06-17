@@ -7,8 +7,13 @@ import com.agentapp.data.model.Character
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 class CharacterRepository(private val context: Context) {
@@ -54,17 +59,105 @@ class CharacterRepository(private val context: Context) {
         } catch (_: Exception) { null }
     }
 
-    /** 解析角色 JSON，自动提取 SillyTavern data 包裹层 */
-    private fun parseCharacterJson(text: String): Character? {
+    /** 从 PNG 导入角色+世界书，返回完整 ImportResult */
+    fun importFromPngWithWorldBook(file: File): ImportResult? {
+        return try {
+            val bytes = file.readBytes()
+            val text = extractPngCharaText(bytes) ?: return null
+            parseCharacterWithWorldBook(text, file.absolutePath)
+        } catch (_: Exception) { null }
+    }
+
+    /** 导入结果：角色 + 世界书条目 */
+    data class ImportResult(
+        val character: Character,
+        val worldEntries: List<com.agentapp.data.model.WorldEntry> = emptyList()
+    )
+
+    /** 解析角色 JSON，自动提取 SillyTavern data 包裹层 + character_book + depth_prompt */
+    fun parseCharacterWithWorldBook(text: String, imagePath: String? = null): ImportResult? {
         return try {
             val root = json.parseToJsonElement(text).jsonObject
-            // SillyTavern V2/V3 格式: { spec, data: { name, ... } }
             val inner = root["data"]?.jsonObject ?: root
-            json.decodeFromJsonElement<Character>(inner)
+
+            // 提取 depth_prompt → 合并到 system prompt
+            val depthPrompt = root["extensions"]?.jsonObject
+                ?.get("depth_prompt")?.jsonObject
+                ?.get("prompt")?.jsonPrimitive?.content ?:
+                inner["extensions"]?.jsonObject
+                    ?.get("depth_prompt")?.jsonObject
+                    ?.get("prompt")?.jsonPrimitive?.content ?: ""
+
+            // 提取 creator_notes
+            val creatorNotes = inner["creator_notes"]?.jsonPrimitive?.content
+                ?: root["creator_notes"]?.jsonPrimitive?.content
+                ?: root["creatorcomment"]?.jsonPrimitive?.content ?: ""
+
+            // 构建完整的 system prompt
+            val rawChar = json.decodeFromJsonElement<Character>(inner)
+            val extraPrompt = listOfNotNull(
+                depthPrompt.takeIf { it.isNotBlank() },
+                creatorNotes.takeIf { it.isNotBlank() }
+            ).joinToString("\n\n")
+            val character = if (extraPrompt.isNotBlank()) {
+                rawChar.copy(systemPrompt = if (rawChar.systemPrompt.isNotBlank())
+                    rawChar.systemPrompt + "\n\n" + extraPrompt else extraPrompt)
+            } else rawChar
+
+            // 设置头像路径
+            val finalChar = if (imagePath != null) character.copy(avatarUri = imagePath) else character
+
+            // 提取 character_book → WorldEntry 列表
+            val bookJson = root["data"]?.jsonObject?.get("character_book")?.jsonObject
+                ?: root["character_book"]?.jsonObject
+            val entries = mutableListOf<com.agentapp.data.model.WorldEntry>()
+            if (bookJson != null) {
+                val bookEntries = bookJson["entries"]?.jsonArray ?: emptyList()
+                for (entryEl in bookEntries) {
+                    try {
+                        val e = entryEl.jsonObject
+                        val keys = e["keys"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content } ?: emptyList()
+                        val secondaryKeys = e["secondary_keys"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content } ?: emptyList()
+                        val allKeys = (keys + secondaryKeys).distinct()
+                        val content = e["content"]?.jsonPrimitive?.content ?: ""
+                        val comment = e["comment"]?.jsonPrimitive?.content ?: ""
+                        val enabled = e["constant"]?.jsonPrimitive?.booleanOrNull?.let { !it } ?: true
+                        val priority = e["insertion_order"]?.jsonPrimitive?.intOrNull ?: 100
+                        val position = when (e["position"]?.jsonPrimitive?.content) {
+                            "before_char" -> com.agentapp.data.model.WorldEntryPosition.BEFORE_SYSTEM
+                            "after_char" -> com.agentapp.data.model.WorldEntryPosition.AFTER_SYSTEM
+                            else -> com.agentapp.data.model.WorldEntryPosition.AFTER_SYSTEM
+                        }
+                        val probability = e["selective"]?.jsonPrimitive?.doubleOrNull?.toFloat() ?: 1.0f
+
+                        if (allKeys.isNotEmpty() && content.isNotBlank()) {
+                            entries.add(com.agentapp.data.model.WorldEntry(
+                                keys = allKeys,
+                                content = if (comment.isNotBlank()) "$content\n\n($comment)" else content,
+                                enabled = enabled,
+                                priority = priority,
+                                characterId = character.id,
+                                probability = probability,
+                                position = position
+                            ))
+                        }
+                    } catch (_: Exception) { /* 跳过损坏的条目 */ }
+                }
+            }
+
+            ImportResult(finalChar, entries)
         } catch (_: Exception) {
-            // 回退: 直接解析
-            json.decodeFromString<Character>(text)
+            // 回退: 直接解析不带世界书
+            try {
+                val char = json.decodeFromString<Character>(text)
+                ImportResult(char)
+            } catch (_: Exception) { null }
         }
+    }
+
+    /** 解析角色 JSON，自动提取 SillyTavern data 包裹层（旧接口） */
+    private fun parseCharacterJson(text: String): Character? {
+        return parseCharacterWithWorldBook(text)?.character
     }
 
     /** 从文件导入（自动识别 JSON 或 PNG）*/
