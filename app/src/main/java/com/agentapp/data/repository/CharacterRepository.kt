@@ -107,7 +107,14 @@ class CharacterRepository(private val context: Context) {
                     val text = String(textBytes, Charsets.UTF_8)
 
                     when (keyword) {
-                        "chara", "character" -> return text
+                        "chara", "character" -> {
+                            // V2/V3 的 chara 可能存为 Base64（以 'eyJ' 开头）
+                            return if (text.startsWith("eyJ")) {
+                                try {
+                                    String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                                } catch (_: Exception) { text }
+                            } else text
+                        }
                         "v3chara", "ccv3" -> {
                             return try {
                                 String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
