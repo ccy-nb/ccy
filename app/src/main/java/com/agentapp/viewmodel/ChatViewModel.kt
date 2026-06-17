@@ -289,9 +289,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _streamingText.value = ""
                     throw e
                 } catch (e: Exception) {
+                    val detail = when {
+                        e is java.net.UnknownHostException -> "无法连接服务器，请检查网络和 API 地址"
+                        e is java.net.SocketTimeoutException -> "连接超时，请检查网络和 API 地址"
+                        e is java.io.IOException && e.message != null -> e.message!!
+                        else -> e.message ?: "${e.javaClass.simpleName}"
+                    }
                     val em = Message(
                         role = Role.ASSISTANT,
-                        content = "⚠️ 出错了：${e.message ?: "未知错误"}"
+                        content = "⚠️ 出错了：$detail"
                     )
                     val fs = _currentSession.value?.copy(
                         messages = _currentSession.value!!.messages + em
@@ -340,13 +346,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             sysContent.appendLine()
         }
 
-        // 用户 Persona
-        val persona = personaRepo.get()
-        val personaPrompt = persona.buildPrompt()
-        if (personaPrompt.isNotEmpty()) {
-            sysContent.appendLine(personaPrompt)
-            sysContent.appendLine()
-        }
+        // 用户 Persona（失败不影响聊天）
+        try {
+            val persona = personaRepo.get()
+            val personaPrompt = persona.buildPrompt()
+            if (personaPrompt.isNotEmpty()) {
+                sysContent.appendLine(personaPrompt)
+                sysContent.appendLine()
+            }
+        } catch (_: Exception) { /* 忽略 Persona 加载失败 */ }
 
         // 角色 system prompt
         if (character != null) {
