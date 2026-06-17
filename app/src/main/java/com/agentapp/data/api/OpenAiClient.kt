@@ -24,6 +24,11 @@ object HttpClientProvider {
         .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         .build()
+    
+    val testClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 }
 
 @Serializable

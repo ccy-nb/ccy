@@ -19,20 +19,13 @@ import java.util.concurrent.TimeUnit
 class ApiFactory {
     companion object {
         /** 连接测试用短超时 client */
-        val testClient: OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .build()
+        val testClient get() = HttpClientProvider.testClient
 
         /** API 调用用长超时 client（支持流式） */
-        val apiClient: OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
+        val apiClient get() = HttpClientProvider.client
     }
 
-    private val client get() = Companion.testClient
+    private val client get() = testClient
 
     private val json = Json { ignoreUnknownKeys = true }
 
