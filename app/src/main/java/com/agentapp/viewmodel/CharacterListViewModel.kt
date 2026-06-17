@@ -62,6 +62,14 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
         return true
     }
 
+    /** 导入并返回角色对象（用于 UI 反馈） */
+    suspend fun importFromFileAndGet(file: java.io.File): Character? {
+        val char = characterRepo.importFromFile(file) ?: return null
+        characterRepo.save(char)
+        refresh()
+        return char
+    }
+
     suspend fun importFromJsonContent(content: String): Boolean {
         val char = characterRepo.importFromJson(content) ?: return false
         characterRepo.save(char)

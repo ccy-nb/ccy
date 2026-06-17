@@ -34,6 +34,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -60,6 +62,7 @@ import com.agentapp.ui.theme.TextGray
 import com.agentapp.viewmodel.CharacterListViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +81,7 @@ fun CharacterListScreen(
     var urlInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // === 修复 #1：用 rememberLauncherForActivityResult 替代 context.startActivity ===
     val importLauncher = rememberLauncherForActivityResult(
@@ -85,21 +89,30 @@ fun CharacterListScreen(
     ) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
+                var msg = "导入失败"
                 try {
                     val inputStream = context.contentResolver.openInputStream(uri)
-                    val ext = context.contentResolver.getType(uri)?.let { mime ->
-                        when {
-                            mime.contains("png") -> "png"
-                            mime.contains("json") -> "json"
-                            else -> "png"
-                        }
-                    } ?: "png"
+                    val mime = context.contentResolver.getType(uri) ?: ""
+                    val ext = when {
+                        mime.contains("png") -> "png"
+                        mime.contains("json") -> "json"
+                        else -> "png"
+                    }
                     val tempFile = File(context.cacheDir, "import_${System.currentTimeMillis()}.$ext")
                     inputStream?.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
-                    val result = characterListViewModel.importFromFile(tempFile)
-                    if (result) characterListViewModel.refresh()
+                    val char = characterListViewModel.importFromFileAndGet(tempFile)
+                    if (char != null) {
+                        msg = "已导入: ${char.name.ifEmpty { "未命名" }}"
+                    } else if (ext == "png") {
+                        msg = "此图片不包含角色卡数据"
+                    }
                     tempFile.delete()
-                } catch (_: Exception) { }
+                } catch (e: Exception) {
+                    msg = "导入出错: ${e.message ?: "未知"}"
+                }
+                withContext(Dispatchers.Main) {
+                    snackbarHostState.showSnackbar(msg)
+                }
             }
         }
     }
@@ -169,6 +182,7 @@ fun CharacterListScreen(
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("✨ 角色", fontWeight = FontWeight.Bold) },
