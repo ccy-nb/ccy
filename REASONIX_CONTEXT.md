@@ -59,7 +59,7 @@ app/src/main/java/com/agentapp/
 - 预设系统（新建/编辑/导入/导出，Temperature/MaxTokens/TopP等）
 
 ### 上次提交
-`85e1de5` SillyTavern 风格改造
+`0433596` docs: README + 三项 UI 完善
 
 ## 构建命令
 
@@ -93,5 +93,6 @@ cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/agent-app.apk
 | 2026-06-19 | 修复16项代码质量问题和安全隐患 | `cfe8821` | 批量修复 lint/安全/性能问题 |
 | 2026-06-19 | SillyTavern 风格改造 | `85e1de5` | Theme.kt 深蓝灰/米白双色；ChatBubble 取代旧气泡；StreamingStatusBar；ChatListScreen 酒馆风格卡片 |
 | 2026-06-20 | 三 UI 完善：内联编辑+设置折叠+角色网格 | — | ChatScreen 点编辑弹出 EditMessageDialog（仅保存/保存并重新生成）；SettingsScreen 分5组折叠（CollapsibleSection）；CharacterListScreen 两列网格卡片 |
+| 2026-06-20 | 从 GitHub pull 最新代码 + 修复编译错误 | `0433596` | Git pull fast-forward 3 commits（风格改造 + 16项修复 + README）；修复 SettingsScreen 多出的 `}` 括号深度错误；Theme.kt 补回旧颜色别名；ChatBubble.kt 补 `widthIn` import；ChatScreen.kt 删旧 StatusBar import；BUILD SUCCESSFUL；APK 导出 |
 
 > **下次工作流程：** 读此表 → 快速恢复上下文 → 继续开发。

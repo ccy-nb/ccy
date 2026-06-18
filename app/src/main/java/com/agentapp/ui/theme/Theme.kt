@@ -41,6 +41,15 @@ val AccentCyan = Color(0xFF56B6C2)
 val PinkAccent = Color(0xFFFF9EB5)
 val PurpleAccent = Color(0xFFB5A8D5)
 
+// === 旧颜色别名（兼容过渡） ===
+val Pink = AccentOrange
+val PinkDark = Color(0xFFCC6656)
+val PinkLight = Color(0xFFFCE8E4)
+val TextGray = LightOnSurfaceDim
+val WarmWhite = LightBg
+val ChatBubbleAssistant = DarkBubbleAssist
+val ChatBubbleUser = DarkBubbleUser
+
 // === 头像背景色板 ===
 val AvatarColors = listOf(
     AccentOrange, AccentBlue, AccentGreen, AccentYellow,

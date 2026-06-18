@@ -357,8 +357,6 @@ fun SettingsScreen(
                 }
             }
 
-            }
-
             CollapsibleSection("🎨 主题") {
             Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

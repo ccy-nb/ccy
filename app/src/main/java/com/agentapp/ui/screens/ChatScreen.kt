@@ -54,7 +54,6 @@ import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
 import com.agentapp.ui.components.ChatBubble
 import com.agentapp.ui.components.CharacterAvatar
-import com.agentapp.ui.components.StatusBar
 import com.agentapp.ui.components.StreamingStatusBar
 import com.agentapp.data.repository.VariableRepository
 import com.agentapp.ui.theme.AccentBlue
