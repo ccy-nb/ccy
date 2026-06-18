@@ -52,11 +52,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agentapp.data.estimateChatTokens
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
-import com.agentapp.ui.components.StatusPanel
-import com.agentapp.ui.components.StreamingPanel
+import com.agentapp.ui.components.ChatBubble
+import com.agentapp.ui.components.CharacterAvatar
+import com.agentapp.ui.components.StatusBar
+import com.agentapp.ui.components.StreamingStatusBar
 import com.agentapp.data.repository.VariableRepository
-import com.agentapp.ui.theme.Pink
-import com.agentapp.ui.theme.TextGray
+import com.agentapp.ui.theme.AccentBlue
+import com.agentapp.ui.theme.AccentOrange
 import com.agentapp.viewmodel.ChatViewModel
 
 /**
@@ -183,11 +185,11 @@ fun ChatScreen(
                         value = inputText,
                         onValueChange = { chatViewModel.setInputText(it) },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("输入消息...", color = TextGray) },
+                        placeholder = { Text("输入消息...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
                         shape = RoundedCornerShape(24.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Pink,
-                            unfocusedBorderColor = Color(0xFFE8DDE8)
+                            focusedBorderColor = AccentOrange,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                         ),
                         maxLines = 4,
                         enabled = !isLoading
@@ -200,7 +202,7 @@ fun ChatScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
                             contentDescription = "发送",
-                            tint = if (inputText.isNotBlank() && !isLoading) Pink else TextGray
+                            tint = if (inputText.isNotBlank() && !isLoading) AccentOrange else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                         )
                     }
                 }
@@ -212,10 +214,10 @@ fun ChatScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("💬", fontSize = 48.sp)
                     Spacer(Modifier.height(12.dp))
-                    Text("加载中...", color = TextGray)
+                    Text("加载中...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { chatViewModel.loadSession(sessionId, characterName) }) {
-                        Text("重试", color = Pink)
+                        Text("重试", color = AccentOrange)
                     }
                 }
             }
@@ -240,7 +242,7 @@ fun ChatScreen(
                         Text(
                             "💬 对话 ${allSessions.indexOf(session) + 1}/${allSessions.size}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextGray
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                         val tokenCount = remember(session.messages.size) {
                             estimateChatTokens(session.messages)
@@ -248,11 +250,11 @@ fun ChatScreen(
                         Text(
                             "$tokenCount tok",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (tokenCount > 3000) Color(0xFFFF6B8A) else TextGray
+                            color = if (tokenCount > 3000) AccentOrange else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                         Spacer(Modifier.weight(1f))
                         TextButton(onClick = { chatViewModel.createNewSession() }) {
-                            Text("＋新建", color = Pink, fontSize = 13.sp)
+                            Text("＋新建", color = AccentOrange, fontSize = 13.sp)
                         }
                     }
                     DropdownMenu(
@@ -290,12 +292,12 @@ fun ChatScreen(
                             .padding(horizontal = 12.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(presetLabel, style = MaterialTheme.typography.bodySmall, color = TextGray)
+                        Text(presetLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         if (currentPreset != null) {
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 "T:${currentPreset.temperature}  Tok:${currentPreset.maxTokens}",
-                                style = MaterialTheme.typography.bodySmall, fontSize = 10.sp, color = TextGray
+                                style = MaterialTheme.typography.bodySmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -310,7 +312,7 @@ fun ChatScreen(
                                         Text(p.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                         Text(
                                             "T:${p.temperature}  TopP:${p.topP}  Max:${p.maxTokens}",
-                                            fontSize = 11.sp, color = TextGray
+                                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                         )
                                     }
                                 },
@@ -330,13 +332,13 @@ fun ChatScreen(
                     value = searchQuery,
                     onValueChange = { chatViewModel.setSearchQuery(it) },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                    placeholder = { Text("搜索消息...", color = TextGray) },
+                    placeholder = { Text("搜索消息...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
                     leadingIcon = { Text("🔍", fontSize = 14.sp) },
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Pink,
-                        unfocusedBorderColor = Color(0xFFE8DDE8)
+                        focusedBorderColor = AccentOrange,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                     )
                 )
             }
@@ -347,9 +349,9 @@ fun ChatScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("💬", fontSize = 48.sp)
                         Spacer(Modifier.height(16.dp))
-                        Text("和 $characterName 开始聊天吧~", style = MaterialTheme.typography.titleMedium, color = TextGray)
+                        Text("和 $characterName 开始聊天吧~", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         Spacer(Modifier.height(4.dp))
-                        Text("在下方输入消息发送 ✨", style = MaterialTheme.typography.bodySmall, color = TextGray)
+                        Text("在下方输入消息发送 ✨", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                     }
                 }
             } else {
@@ -370,7 +372,7 @@ fun ChatScreen(
                             )
                         }
                         if (matchedWorldKeywords.size > 6) {
-                            Text("+${matchedWorldKeywords.size - 6}", fontSize = 11.sp, color = TextGray)
+                            Text("+${matchedWorldKeywords.size - 6}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                     }
                 }
@@ -400,45 +402,33 @@ fun ChatScreen(
                         }
                         val (displayText, hasPanel) = statusPanelId
 
-                        val isEditingThis = editMessageId == msg.id
-                        CuteMessageBubble(
+                        val isLast = msg.id == filteredMessages.lastOrNull()?.id
+                        ChatBubble(
                             message = msg.copy(content = displayText),
-                            isUser = msg.role == Role.USER,
-                            onLongClick = { showMessageActions = msg.id },
-                            onSpeak = { chatViewModel.speakText(msg.content) },
-                            onRegenerate = if (msg.role == Role.ASSISTANT) ({ chatViewModel.regenerate(msg) }) else null,
+                            characterName = characterName,
+                            characterAvatarUri = if (msg.role == Role.ASSISTANT) chatViewModel.characterAvatarUri.value else null,
+                            isLast = isLast,
+                            onSwipeLeft = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeLeft(msg.id) }) else {{}},
+                            onSwipeRight = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeRight(msg.id) }) else {{}},
                             onEdit = { editMessageId = msg.id; editText = msg.content },
-                            onDelete = { chatViewModel.deleteMessage(msg.id) },
-                            onSwipeLeft = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeLeft(msg.id) }) else null,
-                            onSwipeRight = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeRight(msg.id) }) else null,
-                            onContinue = if (msg.role == Role.ASSISTANT && msg.id == filteredMessages.lastOrNull()?.id) ({ chatViewModel.continueMessage(msg.id) }) else null,
-                            avatarUri = if (msg.role == Role.ASSISTANT) chatViewModel.characterAvatarUri.value else null,
-                            characterName = if (msg.role == Role.ASSISTANT) characterName else "",
-                            isEditing = isEditingThis,
-                            editText = if (isEditingThis) editText else msg.content,
-                            onEditTextChange = { editText = it },
-                            onEditSave = {
-                                if (editMessageId != null) chatViewModel.editMessage(editMessageId!!, editText)
-                                editMessageId = null
-                            },
-                            onEditCancel = { editMessageId = null }
+                            onContinue = if (msg.role == Role.ASSISTANT && isLast) ({ chatViewModel.continueMessage(msg.id) }) else null,
+                            onCreateBranch = if (msg.role == Role.ASSISTANT) ({ chatViewModel.createBranch(msg.id) }) else null,
+                            onDelete = { chatViewModel.deleteMessage(msg.id) }
                         )
-
-                        if (hasPanel && msg.role == Role.ASSISTANT && session != null) {
-                            StatusPanel(
-                                sessionId = session.id,
-                                variableRepository = varRepo,
-                                modifier = Modifier.padding(horizontal = 12.dp)
-                            )
-                        }
                     }
                     if (streamingText.isNotEmpty()) {
                         item {
-                            CuteMessageBubble(
+                            ChatBubble(
                                 message = Message(role = Role.ASSISTANT, content = streamingText),
-                                isUser = false,
-                                onSwipeLeft = null,
-                                onSwipeRight = null
+                                characterName = characterName,
+                                characterAvatarUri = chatViewModel.characterAvatarUri.value,
+                                isLast = true,
+                                onSwipeLeft = {{}},
+                                onSwipeRight = {{}},
+                                onEdit = {{}},
+                                onContinue = null,
+                                onCreateBranch = null,
+                                onDelete = {{}}
                             )
                         }
                     } else if (isLoading) {
@@ -446,17 +436,15 @@ fun ChatScreen(
                     }
                     item { Spacer(Modifier.height(4.dp)) }
                 }
-                // 浮动流式面板
+                // 底部状态栏
                 if (streamingText.isNotEmpty() || isLoading) {
-                    var panelMinimized by remember { mutableStateOf(false) }
-                    StreamingPanel(
-                        text = streamingText,
-                        isLoading = isLoading,
-                        isMinimized = panelMinimized,
-                        onToggleMinimize = { panelMinimized = !panelMinimized },
+                    StreamingStatusBar(
+                        isStreaming = isLoading,
+                        modelName = characterName,
+                        streamingText = streamingText,
+                        tokensSoFar = streamingText.length / 4,
                         onStop = { chatViewModel.cancelStream() },
-                        onClose = { panelMinimized = true },
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                        onMinimize = {{}}
                     )
                 }
             }  // close Box

@@ -26,9 +26,7 @@ import com.agentapp.ui.screens.ChatListScreen
 import com.agentapp.ui.screens.CharacterListScreen
 import com.agentapp.ui.screens.SettingsScreen
 import com.agentapp.ui.screens.WorldBookScreen
-import com.agentapp.ui.theme.Pink
-import com.agentapp.ui.theme.PinkDark
-import com.agentapp.ui.theme.TextGray
+import com.agentapp.ui.theme.AccentOrange
 import com.agentapp.viewmodel.ChatListViewModel
 import com.agentapp.viewmodel.CharacterListViewModel
 import com.agentapp.viewmodel.SettingsViewModel
@@ -71,10 +69,10 @@ fun MainScreen(
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Pink,
-                            selectedTextColor = PinkDark,
-                            unselectedIconColor = TextGray,
-                            unselectedTextColor = TextGray,
+                            selectedIconColor = AccentOrange,
+                            selectedTextColor = AccentOrange,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                             indicatorColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
