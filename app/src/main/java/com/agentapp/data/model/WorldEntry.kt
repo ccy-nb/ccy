@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 enum class WorldEntryPosition {
     BEFORE_SYSTEM,   // system prompt 最前面
     AFTER_SYSTEM,    // system prompt 最后面（默认）
-    BEFORE_USER      // 用户最后一条消息之前
+    BEFORE_USER,     // 用户最后一条消息之前
+    AFTER_USER,      // 用户最后一条消息之后
+    BEFORE_ASSISTANT,// AI 回复之前
+    AFTER_ASSISTANT  // AI 回复之后
 }
 
 @Serializable

@@ -75,6 +75,7 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
     onNavigateToWorldBook: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val config by settingsViewModel.config.collectAsState()
     val selectedTheme by settingsViewModel.selectedTheme.collectAsState()
@@ -298,6 +299,16 @@ fun SettingsScreen(
                 TextButton(onClick = { presetEditDialog = Preset() }) {
                     Text("＋ 新建", color = Pink, fontWeight = FontWeight.Bold)
                 }
+                TextButton(onClick = {
+                    settingsViewModel.exportPresets(presets, context)
+                }) {
+                    Text("📤", fontSize = 14.sp)
+                }
+                TextButton(onClick = {
+                    settingsViewModel.importPreset(context)
+                }) {
+                    Text("📥", fontSize = 14.sp)
+                }
             }
             if (presets.isEmpty()) {
                 Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
@@ -352,6 +363,34 @@ fun SettingsScreen(
                                 selectedContainerColor = PinkLight, selectedLabelColor = PinkDark
                             )
                         )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // ===== 世界书导入 =====
+            SectionTitle("📖 世界书")
+            Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
+                Column(Modifier.padding(16.dp).fillMaxWidth()) {
+                    Text("从 SillyTavern 格式的 lorebook JSON 导入", fontSize = 12.sp, color = TextGray)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                            val clip = clipboard?.primaryClip
+                            val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0)?.text?.toString() else null
+                            if (text != null && text.isNotBlank()) {
+                                settingsViewModel.importWorldBookFromJson(text, context)
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("剪贴板为空，请先复制 JSON") }
+                            }
+                        }) {
+                            Text("📥 从剪贴板导入", color = Pink, fontSize = 13.sp)
+                        }
+                        TextButton(onClick = onNavigateToWorldBook) {
+                            Text("📂 管理世界书", color = Pink, fontSize = 13.sp)
+                        }
                     }
                 }
             }

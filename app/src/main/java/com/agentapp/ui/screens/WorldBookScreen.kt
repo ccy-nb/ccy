@@ -258,6 +258,9 @@ fun WorldEntryCard(entry: WorldEntry, onEdit: () -> Unit, onDelete: () -> Unit) 
         WorldEntryPosition.BEFORE_SYSTEM -> "📌 最前"
         WorldEntryPosition.AFTER_SYSTEM -> "📎 最后"
         WorldEntryPosition.BEFORE_USER -> "💬 用户前"
+        WorldEntryPosition.AFTER_USER -> "💬 用户后"
+        WorldEntryPosition.BEFORE_ASSISTANT -> "🤖 AI前"
+        WorldEntryPosition.AFTER_ASSISTANT -> "🤖 AI后"
     }
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -405,6 +408,9 @@ private fun WorldEntryEditScreen(
                     WorldEntryPosition.BEFORE_SYSTEM -> "📌 System Prompt 最前面"
                     WorldEntryPosition.AFTER_SYSTEM -> "📎 System Prompt 最后面"
                     WorldEntryPosition.BEFORE_USER -> "💬 用户消息之前"
+                    WorldEntryPosition.AFTER_USER -> "💬 用户消息之后"
+                    WorldEntryPosition.BEFORE_ASSISTANT -> "🤖 AI 回复之前"
+                    WorldEntryPosition.AFTER_ASSISTANT -> "🤖 AI 回复之后"
                 }
                 OutlinedTextField(
                     value = positionLabel, onValueChange = {}, readOnly = true,

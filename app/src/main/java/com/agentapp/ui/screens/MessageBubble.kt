@@ -25,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -36,6 +37,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import coil.compose.AsyncImage
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
 import com.agentapp.ui.components.MarkdownText
@@ -62,7 +71,16 @@ fun CuteMessageBubble(
     onSpeak: (() -> Unit)? = null,
     onRegenerate: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onSwipeLeft: (() -> Unit)? = null,
+    onSwipeRight: (() -> Unit)? = null,
+    avatarUri: String? = null,        // 角色/用户头像 URI
+    characterName: String = "",       // AI 消息旁显示的角色名
+    isEditing: Boolean = false,       // 是否处于内联编辑模式
+    editText: String = "",            // 编辑中的文本
+    onEditTextChange: (String) -> Unit = {},
+    onEditSave: () -> Unit = {},
+    onEditCancel: () -> Unit = {}
 ) {
     val isDark = isSystemInDarkTheme()
     val bubbleColor = if (isUser) {
@@ -73,9 +91,49 @@ fun CuteMessageBubble(
     val timeStr = remember {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
     }
+    val hasSwipes = message.swipes.size > 1
+
+    // 头像尺寸
+    val avatarSize = 32.dp
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        // AI 消息：左侧头像
+        if (!isUser && avatarUri != null) {
+            AsyncImage(
+                model = avatarUri,
+                contentDescription = "$characterName 头像",
+                modifier = Modifier
+                    .padding(top = 6.dp, end = 6.dp)
+                    .size(avatarSize)
+                    .clip(CircleShape),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+        }
+        if (!isUser && avatarUri == null) {
+            // 无头像时显示首字母
+            Box(
+                modifier = Modifier
+                    .padding(top = 6.dp, end = 6.dp)
+                    .size(avatarSize)
+                    .clip(CircleShape)
+                    .background(if (isSystemInDarkTheme()) Color(0xFFB5A8D5) else Color(0xFFD4C9F0)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = characterName.firstOrNull()?.toString() ?: "?",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.widthIn(max = 280.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         Card(
@@ -92,17 +150,79 @@ fun CuteMessageBubble(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                if (isUser) {
-                    Text(message.content, style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface)
+                if (isEditing) {
+                    TextField(
+                        value = editText,
+                        onValueChange = onEditTextChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Pink,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        maxLines = 10,
+                        singleLine = false
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = onEditSave, modifier = Modifier.size(60.dp, 28.dp)) {
+                            Text("保存", fontSize = 11.sp, color = Pink)
+                        }
+                        TextButton(onClick = onEditCancel, modifier = Modifier.size(60.dp, 28.dp)) {
+                            Text("取消", fontSize = 11.sp, color = TextGray)
+                        }
+                    }
                 } else {
-                    MarkdownText(text = message.content)
+                    if (isUser) {
+                        Text(message.content, style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface)
+                    } else {
+                        MarkdownText(text = message.content)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(timeStr, fontSize = 11.sp, color = TextGray)
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(timeStr, fontSize = 11.sp, color = TextGray)
             }
         }
+
+        // Swipe 版本切换控件（仅 AI 消息且有多版本时显示）
+        if (!isUser && hasSwipes && onSwipeLeft != null && onSwipeRight != null) {
+            Row(
+                modifier = Modifier.padding(top = 2.dp, start = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // 左箭头
+                IconButton(
+                    onClick = onSwipeLeft,
+                    modifier = Modifier.size(24.dp),
+                    enabled = message.currentSwipeId > 0
+                ) {
+                    Text("◀", fontSize = 12.sp,
+                        color = if (message.currentSwipeId > 0) Pink else TextGray)
+                }
+                // 计数器
+                Text(
+                    "${message.currentSwipeId + 1}/${message.swipes.size}",
+                    fontSize = 11.sp,
+                    color = TextGray
+                )
+                // 右箭头
+                IconButton(
+                    onClick = onSwipeRight,
+                    modifier = Modifier.size(24.dp),
+                    enabled = true
+                ) {
+                    Text("▶", fontSize = 12.sp, color = Pink)
+                }
+            }
+        }
+
         // 操作按钮（仅 AI 消息显示）
         if (!isUser && (onRegenerate != null || onEdit != null || onDelete != null)) {
             Row(
@@ -131,8 +251,21 @@ fun CuteMessageBubble(
                 }
             }
         }
+    }  // close inner Column
+    // 用户消息：右侧头像
+    if (isUser && avatarUri != null) {
+        AsyncImage(
+            model = avatarUri,
+            contentDescription = "用户头像",
+            modifier = Modifier
+                .padding(top = 6.dp, start = 6.dp)
+                .size(avatarSize)
+                .clip(CircleShape),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
     }
-}
+}  // close outer Row
+}  // close CuteMessageBubble
 
 // === 打字动画 ===
 

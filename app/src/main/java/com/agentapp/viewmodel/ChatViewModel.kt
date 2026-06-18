@@ -43,6 +43,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _characterName = MutableStateFlow("")
     val characterName: StateFlow<String> = _characterName.asStateFlow()
 
+    private val _characterAvatarUri = MutableStateFlow<String?>(null)
+    val characterAvatarUri: StateFlow<String?> = _characterAvatarUri.asStateFlow()
+
     private val _allSessions = MutableStateFlow<List<ChatSession>>(emptyList())
     val allSessions: StateFlow<List<ChatSession>> = _allSessions.asStateFlow()
 
@@ -83,6 +86,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _currentSession.value = session
             _allSessions.value = chatRepo.list(session.characterId)
 
+            // 加载角色头像
+            val character = characterRepo.get(session.characterId)
+            _characterAvatarUri.value = character?.avatarUri
+
             // 加载预设列表
             _presets.value = presetRepo.list()
             // 尝试选中第一个预设
@@ -97,6 +104,46 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _currentSession.value = _currentSession.value?.copy(messages = messages)
                 }
             }
+        }
+    }
+
+    /** swipe 到上一个版本 */
+    fun swipeLeft(msgId: String) {
+        val session = _currentSession.value ?: return
+        val idx = session.messages.indexOfFirst { it.id == msgId }
+        if (idx < 0) return
+        val msg = session.messages[idx]
+        if (msg.swipes.isEmpty() || msg.currentSwipeId <= 0) return
+        val newSwipeId = msg.currentSwipeId - 1
+        val updatedMsg = msg.copy(
+            content = msg.swipes[newSwipeId],
+            currentSwipeId = newSwipeId
+        )
+        val updatedMessages = session.messages.toMutableList().apply { set(idx, updatedMsg) }
+        _currentSession.value = session.copy(messages = updatedMessages)
+        // 持久化当前选择的版本
+        viewModelScope.launch { chatRepo.save(_currentSession.value!!) }
+    }
+
+    /** swipe 到下一个版本。如果已经在最后一个版本，触发 regenerate 生成新版本 */
+    fun swipeRight(msgId: String) {
+        val session = _currentSession.value ?: return
+        val idx = session.messages.indexOfFirst { it.id == msgId }
+        if (idx < 0) return
+        val msg = session.messages[idx]
+        if (msg.swipes.isNotEmpty() && msg.currentSwipeId < msg.swipes.size - 1) {
+            // 切换到下一个已有版本
+            val newSwipeId = msg.currentSwipeId + 1
+            val updatedMsg = msg.copy(
+                content = msg.swipes[newSwipeId],
+                currentSwipeId = newSwipeId
+            )
+            val updatedMessages = session.messages.toMutableList().apply { set(idx, updatedMsg) }
+            _currentSession.value = session.copy(messages = updatedMessages)
+            viewModelScope.launch { chatRepo.save(_currentSession.value!!) }
+        } else if (msg.role == Role.ASSISTANT) {
+            // 没有更多版本了 → regenerate 生成一个新版本
+            regenerate(msg)
         }
     }
 
@@ -124,13 +171,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         doSendMessages(updatedMessages)
     }
 
+    /**
+     * 重新生成 AI 回复。如果是最后一条 AI 消息，新版本会作为 swipe 添加（不覆盖）；
+     * 如果是历史消息，则直接替换（保持向后兼容）。
+     */
     fun regenerate(msg: Message) {
         val session = _currentSession.value ?: return
         val idx = session.messages.indexOf(msg)
         if (idx <= 0) return
         val userMsg = session.messages[idx - 1]
-        val filtered = session.messages.filterIndexed { i, _ -> i != idx && i != idx - 1 }
-        doSendMessages(filtered + userMsg)
+        val isLastAi = idx == session.messages.size - 1
+
+        if (isLastAi && msg.swipes.isNotEmpty()) {
+            // 最后一条 AI 消息已有多个版本 → 生成新版本作为 swipe
+            val filtered = session.messages.filterIndexed { i, _ -> i != idx }
+            doSendMessages(filtered + userMsg, swipeParentId = msg.id)
+        } else if (isLastAi && msg.role == Role.ASSISTANT) {
+            // 最后一条 AI 消息但还没有 swipe → 首次 swipe，保留原版
+            val filtered = session.messages.filterIndexed { i, _ -> i != idx }
+            doSendMessages(filtered + userMsg, swipeParentId = msg.id, firstSwipeContent = msg.content)
+        } else {
+            // 历史消息 → 直接替换（不产生 swipe 版本）
+            val filtered = session.messages.filterIndexed { i, _ -> i != idx && i != idx - 1 }
+            doSendMessages(filtered + userMsg)
+        }
     }
 
     fun editMessage(msgId: String, newContent: String) {
@@ -297,7 +361,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         ttsInstance = null
     }
 
-    private fun doSendMessages(messages: List<Message>) {
+    /**
+     * @param swipeParentId 非 null 时，新生成的 AI 回复作为该消息的 swipe 版本
+     * @param firstSwipeContent swipe 首次生成时，原消息内容作为第一个版本
+     */
+    private fun doSendMessages(messages: List<Message>, swipeParentId: String? = null, firstSwipeContent: String? = null) {
         val session = _currentSession.value ?: return
         val updated = session.copy(messages = messages)
         _currentSession.value = updated
@@ -354,19 +422,45 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             chatRepo.save(fs)
                         } else {
                             val processedReply = regexRepo.applyScripts(reply, scripts)
-                            val am = Message(role = Role.ASSISTANT, content = processedReply)
-                            val fs = s.copy(messages = s.messages + am)
 
-                            // 从回复中提取变量更新（异步，不阻塞渲染）
-                            val patchOps = com.agentapp.data.model.parseUpdateVariableBlock(reply)
-                            if (patchOps.isNotEmpty()) {
-                                viewModelScope.launch {
-                                    val newVars = varRepo.applyPatch(currentVars, patchOps)
-                                    varRepo.save(session.id, newVars)
+                            if (swipeParentId != null) {
+                                // Swipe 模式：新回复作为已有消息的额外版本
+                                val parentMsg = s.messages.find { it.id == swipeParentId }
+                                if (parentMsg != null) {
+                                    val existingSwipes = parentMsg.swipes.toMutableList()
+                                    // 如果是首次 swipe，把原有内容作为第一个版本
+                                    if (firstSwipeContent != null && existingSwipes.isEmpty()) {
+                                        existingSwipes.add(firstSwipeContent)
+                                    }
+                                    val newSwipeId = existingSwipes.size
+                                    existingSwipes.add(processedReply)
+                                    val updatedMsg = parentMsg.copy(
+                                        content = processedReply,
+                                        swipes = existingSwipes,
+                                        currentSwipeId = newSwipeId
+                                    )
+                                    val updatedMessages = s.messages.map { if (it.id == swipeParentId) updatedMsg else it }
+                                    val fs = s.copy(messages = updatedMessages)
+                                    withContext(Dispatchers.Main) { _currentSession.value = fs }
+                                    chatRepo.save(fs)
+                                    // 同时保存 swipe 版本到 Room（用 addSwipe 存独立行）
+                                    chatRepo.addSwipe(session.id, swipeParentId, processedReply)
                                 }
+                            } else {
+                                val am = Message(role = Role.ASSISTANT, content = processedReply)
+                                val fs = s.copy(messages = s.messages + am)
+
+                                // 从回复中提取变量更新（异步，不阻塞渲染）
+                                val patchOps = com.agentapp.data.model.parseUpdateVariableBlock(reply)
+                                if (patchOps.isNotEmpty()) {
+                                    viewModelScope.launch {
+                                        val newVars = varRepo.applyPatch(currentVars, patchOps)
+                                        varRepo.save(session.id, newVars)
+                                    }
+                                }
+                                withContext(Dispatchers.Main) { _currentSession.value = fs }
+                                chatRepo.save(fs)
                             }
-                            withContext(Dispatchers.Main) { _currentSession.value = fs }
-                            chatRepo.save(fs)
                         }
                     }
                     _streamingText.value = ""
@@ -374,10 +468,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (builder.isNotEmpty()) {
                         val s = _currentSession.value ?: return@withLock
                         val partial = regexRepo.applyScripts(builder.toString(), scripts) + "\n\n(回复未完成)"
-                        val pm = Message(role = Role.ASSISTANT, content = partial)
-                        val fs = s.copy(messages = s.messages + pm)
-                        withContext(Dispatchers.Main) { _currentSession.value = fs }
-                        chatRepo.save(fs)
+                        if (swipeParentId != null) {
+                            // Cancelled swipe: 保存部分内容作为新版本
+                            val parentMsg = s.messages.find { it.id == swipeParentId }
+                            if (parentMsg != null) {
+                                val existingSwipes = parentMsg.swipes.toMutableList()
+                                val newSwipeId = existingSwipes.size
+                                existingSwipes.add(partial)
+                                val updatedMsg = parentMsg.copy(swipes = existingSwipes, currentSwipeId = newSwipeId, content = partial)
+                                val updatedMessages = s.messages.map { if (it.id == swipeParentId) updatedMsg else it }
+                                val fs = s.copy(messages = updatedMessages)
+                                withContext(Dispatchers.Main) { _currentSession.value = fs }
+                                chatRepo.save(fs)
+                            }
+                        } else {
+                            val pm = Message(role = Role.ASSISTANT, content = partial)
+                            val fs = s.copy(messages = s.messages + pm)
+                            withContext(Dispatchers.Main) { _currentSession.value = fs }
+                            chatRepo.save(fs)
+                        }
                     }
                     _streamingText.value = ""
                     throw e

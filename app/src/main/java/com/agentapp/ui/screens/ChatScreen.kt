@@ -115,22 +115,8 @@ fun ChatScreen(
         )
     }
 
-    // === 编辑消息弹窗 ===
-    if (editMessageId != null) {
-        EditMessageDialog(
-            currentText = editText,
-            onTextChange = { editText = it },
-            onSave = {
-                editMessageId?.let { chatViewModel.editMessage(it, editText) }
-                editMessageId = null
-            },
-            onSaveAndRegenerate = {
-                editMessageId?.let { chatViewModel.editAndRegenerate(it, editText) }
-                editMessageId = null
-            },
-            onDismiss = { editMessageId = null }
-        )
-    }
+    // === 内联编辑（替代 EditMessageDialog）===
+    // editMessageId != null 时 CuteMessageBubble 会显示 TextField 替代文本
 
     // 自动滚动到底部 — 新消息或流式文本更新时跟随
     LaunchedEffect(session?.messages?.size, streamingText) {
@@ -411,6 +397,7 @@ fun ChatScreen(
                         }
                         val (displayText, hasPanel) = statusPanelId
 
+                        val isEditingThis = editMessageId == msg.id
                         CuteMessageBubble(
                             message = msg.copy(content = displayText),
                             isUser = msg.role == Role.USER,
@@ -418,7 +405,19 @@ fun ChatScreen(
                             onSpeak = { chatViewModel.speakText(msg.content) },
                             onRegenerate = if (msg.role == Role.ASSISTANT) ({ chatViewModel.regenerate(msg) }) else null,
                             onEdit = { editMessageId = msg.id; editText = msg.content },
-                            onDelete = { chatViewModel.deleteMessage(msg.id) }
+                            onDelete = { chatViewModel.deleteMessage(msg.id) },
+                            onSwipeLeft = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeLeft(msg.id) }) else null,
+                            onSwipeRight = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeRight(msg.id) }) else null,
+                            avatarUri = if (msg.role == Role.ASSISTANT) chatViewModel.characterAvatarUri.value else null,
+                            characterName = if (msg.role == Role.ASSISTANT) characterName else "",
+                            isEditing = isEditingThis,
+                            editText = if (isEditingThis) editText else msg.content,
+                            onEditTextChange = { editText = it },
+                            onEditSave = {
+                                if (editMessageId != null) chatViewModel.editMessage(editMessageId!!, editText)
+                                editMessageId = null
+                            },
+                            onEditCancel = { editMessageId = null }
                         )
 
                         if (hasPanel && msg.role == Role.ASSISTANT && session != null) {
@@ -433,7 +432,9 @@ fun ChatScreen(
                         item {
                             CuteMessageBubble(
                                 message = Message(role = Role.ASSISTANT, content = streamingText),
-                                isUser = false
+                                isUser = false,
+                                onSwipeLeft = null,
+                                onSwipeRight = null
                             )
                         }
                     } else if (isLoading) {

@@ -15,6 +15,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     fun listBySessionFlow(sessionId: String): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE parentMessageId = :parentId ORDER BY siblingIndex ASC")
+    suspend fun getSwipes(parentId: String): List<MessageEntity>
+
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun get(id: String): MessageEntity?
 
