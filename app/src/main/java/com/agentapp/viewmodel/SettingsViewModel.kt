@@ -147,17 +147,36 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { presetRepo.delete(id) }
     }
 
-    /** 导出预设为 JSON 并通过分享发送 */
+    /** 导出预设为 JSON 并通过分享发送（使用 FileProvider 避免 EXTRA_TEXT 500KB 限制） */
     fun exportPresets(presets: List<Preset>, context: android.content.Context) {
         val json = kotlinx.serialization.json.Json { prettyPrint = true }
         val serializer = kotlinx.serialization.builtins.ListSerializer(Preset.serializer())
         val jsonStr = json.encodeToString(serializer, presets)
-        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "application/json"
-            putExtra(android.content.Intent.EXTRA_TEXT, jsonStr)
-            putExtra(android.content.Intent.EXTRA_SUBJECT, "Agent App 预设导出")
+        // 写入缓存文件，通过 FileProvider 分享
+        try {
+            val file = java.io.File(context.cacheDir, "agent_app_presets_${System.currentTimeMillis()}.json")
+            file.writeText(jsonStr)
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "Agent App 预设导出")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "导出预设"))
+        } catch (e: Exception) {
+            // 回退：直接文本分享（小量预设）
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(android.content.Intent.EXTRA_TEXT, jsonStr)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "Agent App 预设导出")
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "导出预设"))
         }
-        context.startActivity(android.content.Intent.createChooser(intent, "导出预设"))
     }
 
     /** 导入预设：从剪贴板读取 JSON 并解析 */

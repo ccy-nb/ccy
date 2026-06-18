@@ -262,18 +262,18 @@ class CharacterRepository(private val context: Context) {
                             // V2/V3 的 chara 可能存为 Base64（以 'eyJ' 开头）
                             return if (text.startsWith("eyJ")) {
                                 try {
-                                    String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                                    String(java.util.Base64.getDecoder().decode(text), Charsets.UTF_8)
                                 } catch (_: Exception) { text }
                             } else text
                         }
                         "v3chara", "ccv3" -> {
                             return try {
-                                String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                                String(java.util.Base64.getDecoder().decode(text), Charsets.UTF_8)
                             } catch (_: Exception) { text }
                         }
                         "v3" -> {
                             try {
-                                val decoded = android.util.Base64.decode(textBytes, android.util.Base64.NO_WRAP)
+                                val decoded = java.util.Base64.getDecoder().decode(textBytes)
                                 return String(decoded, Charsets.UTF_8)
                             } catch (_: Exception) { /* 继续搜索 */ }
                         }

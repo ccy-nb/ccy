@@ -86,11 +86,13 @@ class ChatRepository(private val context: Context) {
         if (entities.isNotEmpty()) {
             messageDao.saveAll(entities)
         }
-        // 清理被删除的消息（不在新列表中的）
+        // 批量删除不再使用的消息（不在新列表中的）
         val existingIds = messageDao.listBySession(session.id).map { it.id }.toSet()
         val newIds = entities.map { it.id }.toSet()
         val toDelete = existingIds - newIds
-        toDelete.forEach { messageDao.deleteById(it) }
+        if (toDelete.isNotEmpty()) {
+            messageDao.deleteByIds(toDelete.toList())
+        }
     }
 
     suspend fun delete(id: String) {

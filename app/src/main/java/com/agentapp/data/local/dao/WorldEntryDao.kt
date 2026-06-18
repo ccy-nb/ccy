@@ -28,6 +28,9 @@ interface WorldEntryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(entry: WorldEntryEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveAll(entries: List<WorldEntryEntity>)
+
     @Delete
     suspend fun delete(entry: WorldEntryEntity)
 

@@ -121,6 +121,7 @@ class OpenAiClient(private val config: ApiConfig) {
         val url = "${config.baseUrl.trimEnd('/')}/chat/completions"
 
         var response: okhttp3.Response? = null
+        var reader: BufferedReader? = null
         try {
             val bodyJson = json.encodeToString(requestBody)
             val request = Request.Builder()
@@ -142,18 +143,15 @@ class OpenAiClient(private val config: ApiConfig) {
                     "HTTP ${response.code}: ${errorBody.take(100)}"
                 }
                 trySend("[ERROR: $errMsg]")
-                response.close()
-                close()
                 return@callbackFlow
             }
 
             val bodyStream = response.body?.byteStream()
             if (bodyStream == null) {
-                close()
                 return@callbackFlow
             }
 
-            val reader = BufferedReader(InputStreamReader(bodyStream))
+            reader = BufferedReader(InputStreamReader(bodyStream))
             var line: String? = null
             var shouldStop = false
             while (!shouldStop && reader.readLine().also { line = it } != null) {
@@ -179,19 +177,22 @@ class OpenAiClient(private val config: ApiConfig) {
                     } catch (_: Exception) { /* skip malformed SSE lines */ }
                 }
             }
-            reader.close()
-            response.close()
-            close()
         } catch (e: Exception) {
             val cls = e.javaClass.simpleName
             val msg = e.message ?: "null"
             val cause = e.cause?.let { " ← ${it.javaClass.simpleName}: ${it.message}" } ?: ""
             trySend("[ERROR: $cls: $msg$cause]")
-            try { response?.close() } catch (_: Exception) {}
+        } finally {
+            reader?.close()
+            response?.close()
             close()
         }
 
-        awaitClose { }
+        awaitClose {
+            // Cleanup if flow is cancelled mid-stream
+            reader?.close()
+            response?.close()
+        }
     }.flowOn(Dispatchers.IO)
 
     suspend fun chatSync(messages: List<Message>): String {

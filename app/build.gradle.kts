@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.datastore.preferences)
+    implementation(libs.security.crypto)
     implementation(libs.coil.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)

@@ -202,8 +202,8 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                 // *italic*
                 text.startsWith("*", i) && !text.startsWith("**", i) -> {
                     val end = text.indexOf("*", i + 1)
-                    if (end != -1 && end < text.length && text[end] == '*') {
-                        // 可能是 **，回退
+                    if (end != -1 && end + 1 < text.length && text[end + 1] == '*') {
+                        // 找到的 * 是 ** 的起始 → 回退，按普通字符处理
                         append(text[i]); i++
                     } else if (end != -1) {
                         withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {

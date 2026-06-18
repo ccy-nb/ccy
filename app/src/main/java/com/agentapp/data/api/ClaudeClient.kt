@@ -107,6 +107,7 @@ class ClaudeClient(private val config: ApiConfig) {
             .build()
 
         var response: okhttp3.Response? = null
+        var reader: BufferedReader? = null
         try {
             response = client.newCall(request).execute()
 
@@ -120,18 +121,15 @@ class ClaudeClient(private val config: ApiConfig) {
                     "HTTP ${response.code}: ${errorBody.take(100)}"
                 }
                 trySend("[ERROR: $errMsg]")
-                response.close()
-                close()
                 return@callbackFlow
             }
 
             val bodyStream = response.body?.byteStream()
             if (bodyStream == null) {
-                close()
                 return@callbackFlow
             }
 
-            val reader = BufferedReader(InputStreamReader(bodyStream))
+            reader = BufferedReader(InputStreamReader(bodyStream))
             var line: String? = null
             var currentEvent = ""
             var shouldStop = false
@@ -164,16 +162,18 @@ class ClaudeClient(private val config: ApiConfig) {
                     }
                 }
             }
-            reader.close()
-            response.close()
-            close()
         } catch (e: Exception) {
             trySend("[ERROR: ${e.javaClass.simpleName}: ${e.message ?: "null"}]")
-            try { response?.close() } catch (_: Exception) {}
+        } finally {
+            reader?.close()
+            response?.close()
             close()
         }
 
-        awaitClose { }
+        awaitClose {
+            reader?.close()
+            response?.close()
+        }
     }.flowOn(Dispatchers.IO)
 
     suspend fun chatSync(messages: List<Message>): String {

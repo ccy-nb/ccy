@@ -11,9 +11,6 @@ import androidx.compose.runtime.setValue
 import com.agentapp.data.repository.SettingsRepository
 import com.agentapp.ui.theme.AgentAppTheme
 import com.agentapp.ui.theme.ThemeMode
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

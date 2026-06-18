@@ -31,14 +31,13 @@ class WorldRepository(private val context: Context) {
 
     /** 批量保存条目，返回成功条数 */
     suspend fun saveAll(entries: List<WorldEntry>): Int {
-        var count = 0
-        for (entry in entries) {
-            try {
-                dao.save(entry.toEntity())
-                count++
-            } catch (_: Exception) { }
+        return try {
+            val entities = entries.map { it.toEntity() }
+            dao.saveAll(entities)
+            entities.size
+        } catch (e: Exception) {
+            0
         }
-        return count
     }
 
     // === WorldBook CRUD ===

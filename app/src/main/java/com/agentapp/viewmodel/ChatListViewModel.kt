@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.agentapp.data.model.ChatSession
 import com.agentapp.data.repository.CharacterRepository
 import com.agentapp.data.repository.ChatRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,10 +20,17 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
     private val _sessions = MutableStateFlow<List<Pair<ChatSession, String>>>(emptyList())
     val sessions: StateFlow<List<Pair<ChatSession, String>>> = _sessions.asStateFlow()
 
+    private var collectorJob: Job? = null
+
     init {
-        viewModelScope.launch {
+        startCollectors()
+    }
+
+    private fun startCollectors() {
+        collectorJob?.cancel()
+        collectorJob = viewModelScope.launch {
             val characters = characterRepo.list()
-            characters.forEach { char ->
+            val jobs = characters.map { char ->
                 launch {
                     chatRepo.listFlow(char.id).collect { sessions ->
                         refresh()
@@ -29,6 +38,7 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
                 }
             }
             refresh()
+            // Keep job references so they can be cancelled via collectorJob children
         }
     }
 

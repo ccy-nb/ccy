@@ -643,18 +643,61 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val sysMsg = Message(role = Role.SYSTEM, content = sysContent.toString())
         val apiMsgs = mutableListOf(sysMsg).apply { addAll(messages) }
 
-        // BEFORE_USER 条目插入到用户最后一条消息之前
-        val beforeUserEntries = matchResult[WorldEntryPosition.BEFORE_USER]
-        if (!beforeUserEntries.isNullOrEmpty()) {
-            val beforeUserContent = beforeUserEntries.joinToString("\n") { it.content }
-            val beforeUserMsg = Message(role = Role.SYSTEM, content = beforeUserContent)
-            apiMsgs.add(apiMsgs.size - 1, beforeUserMsg)
+        // 按位置插入世界书条目到消息流中
+        // apiMsgs 结构: [sysMsg, msg1, msg2, msg3, ...]
+        // msg 循环索引 (skip sysMsg at index 0)
+        var insertOffset = 0
+        for (i in 1 until apiMsgs.size) {
+            val msg = apiMsgs[i]
+            when (msg.role) {
+                Role.USER -> {
+                    // BEFORE_USER: 在此用户消息前插入
+                    val beforeUser = matchResult[WorldEntryPosition.BEFORE_USER]
+                    if (!beforeUser.isNullOrEmpty()) {
+                        val content = beforeUser.joinToString("\n") { it.content }
+                        apiMsgs.add(i + insertOffset, Message(role = Role.SYSTEM, content = content))
+                        insertOffset++
+                    }
+                }
+                Role.ASSISTANT -> {
+                    // BEFORE_ASSISTANT: 在此助手消息前插入
+                    val beforeAsst = matchResult[WorldEntryPosition.BEFORE_ASSISTANT]
+                    if (!beforeAsst.isNullOrEmpty()) {
+                        val content = beforeAsst.joinToString("\n") { it.content }
+                        apiMsgs.add(i + insertOffset, Message(role = Role.SYSTEM, content = content))
+                        insertOffset++
+                    }
+                }
+                else -> {}
+            }
+            // AFTER_USER/AFTER_ASSISTANT: 在消息后插入
+            when (msg.role) {
+                Role.USER -> {
+                    val afterUser = matchResult[WorldEntryPosition.AFTER_USER]
+                    if (!afterUser.isNullOrEmpty()) {
+                        val content = afterUser.joinToString("\n") { it.content }
+                        apiMsgs.add(i + insertOffset + 1, Message(role = Role.SYSTEM, content = content))
+                        insertOffset++
+                    }
+                }
+                Role.ASSISTANT -> {
+                    val afterAsst = matchResult[WorldEntryPosition.AFTER_ASSISTANT]
+                    if (!afterAsst.isNullOrEmpty()) {
+                        val content = afterAsst.joinToString("\n") { it.content }
+                        apiMsgs.add(i + insertOffset + 1, Message(role = Role.SYSTEM, content = content))
+                        insertOffset++
+                    }
+                }
+                else -> {}
+            }
         }
 
         return apiMsgs
     }
 
     override fun onCleared() {
+        streamJob?.cancel()
+        messagesJob?.cancel()
         super.onCleared()
         shutdownTts()
     }

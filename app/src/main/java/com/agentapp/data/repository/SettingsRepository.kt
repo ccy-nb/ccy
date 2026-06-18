@@ -1,6 +1,9 @@
 package com.agentapp.data.repository
 
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -18,8 +21,22 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SettingsRepository(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val securePrefs: SharedPreferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "secure_api_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
     companion object {
         private val API_CONFIG_KEY = stringPreferencesKey("api_config")
+        private val ENCRYPTED_API_KEY = "encrypted_api_key"
         private val DEFAULT_CHARACTER_ID = stringPreferencesKey("default_character")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
     }
@@ -27,13 +44,22 @@ class SettingsRepository(private val context: Context) {
     fun getApiConfig(): Flow<ApiConfig?> {
         return context.dataStore.data.map { prefs ->
             val str = prefs[API_CONFIG_KEY] ?: return@map null
-            try { json.decodeFromString<ApiConfig>(str) } catch (_: Exception) { null }
+            try {
+                val config = json.decodeFromString<ApiConfig>(str)
+                // Restore encrypted apiKey
+                val encryptedKey = securePrefs.getString(ENCRYPTED_API_KEY, null)
+                if (encryptedKey != null) config.copy(apiKey = encryptedKey) else config
+            } catch (_: Exception) { null }
         }
     }
 
     suspend fun saveApiConfig(config: ApiConfig) {
+        // Save apiKey encrypted separately
+        securePrefs.edit().putString(ENCRYPTED_API_KEY, config.apiKey).apply()
+        // Save rest of config without plaintext apiKey
+        val safeConfig = config.copy(apiKey = "")
         context.dataStore.edit { prefs ->
-            prefs[API_CONFIG_KEY] = json.encodeToString(ApiConfig.serializer(), config)
+            prefs[API_CONFIG_KEY] = json.encodeToString(ApiConfig.serializer(), safeConfig)
         }
     }
 
