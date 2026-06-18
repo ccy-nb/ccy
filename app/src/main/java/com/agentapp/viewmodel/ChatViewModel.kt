@@ -197,6 +197,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 继续生成：在最后一条 AI 消息后追加内容，不创建新消息 */
+    fun continueMessage(msgId: String) {
+        val session = _currentSession.value ?: return
+        val idx = session.messages.indexOfFirst { it.id == msgId }
+        if (idx < 0 || idx != session.messages.size - 1) return  // 只能继续最后一条
+        val msg = session.messages[idx]
+        if (msg.role != Role.ASSISTANT) return
+        // 从消息列表中移除这条 AI 消息（已有内容作为 API 上下文的一部分）
+        val filtered = session.messages.filterIndexed { i, _ -> i != idx }
+        // 在发送时带上全部上下文（包括已有的 AI 回复内容），新回复追加到原内容后
+        doSendMessages(filtered, continueTargetId = msgId, continuePrefix = msg.content)
+    }
+
     fun editMessage(msgId: String, newContent: String) {
         val session = _currentSession.value ?: return
         val updated = session.messages.map { m ->
@@ -355,6 +368,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun cancelStream() {
+        streamJob?.cancel()
+        _isLoading.value = false
+        _streamingText.value = ""
+    }
+
     fun shutdownTts() {
         ttsInstance?.stop()
         ttsInstance?.shutdown()
@@ -365,7 +384,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * @param swipeParentId 非 null 时，新生成的 AI 回复作为该消息的 swipe 版本
      * @param firstSwipeContent swipe 首次生成时，原消息内容作为第一个版本
      */
-    private fun doSendMessages(messages: List<Message>, swipeParentId: String? = null, firstSwipeContent: String? = null) {
+    private fun doSendMessages(
+        messages: List<Message>,
+        swipeParentId: String? = null,
+        firstSwipeContent: String? = null,
+        continueTargetId: String? = null,
+        continuePrefix: String? = null
+    ) {
         val session = _currentSession.value ?: return
         val updated = session.copy(messages = messages)
         _currentSession.value = updated
@@ -423,7 +448,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             val processedReply = regexRepo.applyScripts(reply, scripts)
 
-                            if (swipeParentId != null) {
+                            if (continueTargetId != null) {
+                                // Continue 模式：新回复追加到已有消息末尾
+                                val targetMsg = s.messages.find { it.id == continueTargetId }
+                                if (targetMsg != null) {
+                                    val fullContent = (continuePrefix ?: targetMsg.content) + "\n\n" + processedReply
+                                    val updatedMsg = targetMsg.copy(content = fullContent)
+                                    val updatedMessages = s.messages.map { if (it.id == continueTargetId) updatedMsg else it }
+                                    val fs = s.copy(messages = updatedMessages)
+                                    withContext(Dispatchers.Main) { _currentSession.value = fs }
+                                    chatRepo.save(fs)
+                                }
+                            } else if (swipeParentId != null) {
                                 // Swipe 模式：新回复作为已有消息的额外版本
                                 val parentMsg = s.messages.find { it.id == swipeParentId }
                                 if (parentMsg != null) {
@@ -468,7 +504,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (builder.isNotEmpty()) {
                         val s = _currentSession.value ?: return@withLock
                         val partial = regexRepo.applyScripts(builder.toString(), scripts) + "\n\n(回复未完成)"
-                        if (swipeParentId != null) {
+                        if (continueTargetId != null) {
+                            // Cancelled continue: 追加到已有消息末尾
+                            val targetMsg = s.messages.find { it.id == continueTargetId }
+                            if (targetMsg != null) {
+                                val fullContent = (continuePrefix ?: targetMsg.content) + "\n\n" + partial
+                                val updatedMsg = targetMsg.copy(content = fullContent)
+                                val updatedMessages = s.messages.map { if (it.id == continueTargetId) updatedMsg else it }
+                                val fs = s.copy(messages = updatedMessages)
+                                withContext(Dispatchers.Main) { _currentSession.value = fs }
+                                chatRepo.save(fs)
+                            }
+                        } else if (swipeParentId != null) {
                             // Cancelled swipe: 保存部分内容作为新版本
                             val parentMsg = s.messages.find { it.id == swipeParentId }
                             if (parentMsg != null) {

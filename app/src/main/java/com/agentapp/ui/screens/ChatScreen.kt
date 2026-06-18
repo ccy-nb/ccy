@@ -53,6 +53,7 @@ import com.agentapp.data.estimateChatTokens
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
 import com.agentapp.ui.components.StatusPanel
+import com.agentapp.ui.components.StreamingPanel
 import com.agentapp.data.repository.VariableRepository
 import com.agentapp.ui.theme.Pink
 import com.agentapp.ui.theme.TextGray
@@ -373,7 +374,8 @@ fun ChatScreen(
                     }
                 }
 
-                // 消息列表
+                // 消息列表（含浮动流式面板）
+                Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                     state = listState,
@@ -408,6 +410,7 @@ fun ChatScreen(
                             onDelete = { chatViewModel.deleteMessage(msg.id) },
                             onSwipeLeft = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeLeft(msg.id) }) else null,
                             onSwipeRight = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeRight(msg.id) }) else null,
+                            onContinue = if (msg.role == Role.ASSISTANT && msg.id == filteredMessages.lastOrNull()?.id) ({ chatViewModel.continueMessage(msg.id) }) else null,
                             avatarUri = if (msg.role == Role.ASSISTANT) chatViewModel.characterAvatarUri.value else null,
                             characterName = if (msg.role == Role.ASSISTANT) characterName else "",
                             isEditing = isEditingThis,
@@ -442,6 +445,20 @@ fun ChatScreen(
                     }
                     item { Spacer(Modifier.height(4.dp)) }
                 }
+                // 浮动流式面板
+                if (streamingText.isNotEmpty() || isLoading) {
+                    var panelMinimized by remember { mutableStateOf(false) }
+                    StreamingPanel(
+                        text = streamingText,
+                        isLoading = isLoading,
+                        isMinimized = panelMinimized,
+                        onToggleMinimize = { panelMinimized = !panelMinimized },
+                        onStop = { chatViewModel.cancelStream() },
+                        onClose = { panelMinimized = true },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+            }  // close Box
             }
         }
     }

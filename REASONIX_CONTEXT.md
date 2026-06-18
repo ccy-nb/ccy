@@ -82,6 +82,7 @@ cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/agent-app.apk
 | 2026-06-18 | 修复流式生成长文本不自动滚动 | `f987a86` | LaunchedEffect 增加 streamingText 依赖 + 已读保护；全局记忆 auto-export-apk |
 | 2026-06-18 | 字数控制 + 预设系统全面改造 | `1c7e5f1` | Preset/ApiConfig 扩展采样参数；ChatViewModel 合并预设；上下文截断；ChatScreen 预设切换；Persona 扩展 |
 | 2026-06-18 | 酒馆设置界面调研 | — | 研究 SillyTavern 9抽屉/折叠/内联编辑设计哲学；项目记忆 silly-tavern-settings-design |
-| 2026-06-19 | 对话界面改造一期 — Swipe/头像/内联编辑/导入 | TBD | MessageEntity 新增 parentMessageId/siblingIndex 支持 swipe；MessageBubble 新增 swipe 控件/头像/内联编辑；SettingsScreen 新增预设导入导出 + 世界书导入（ST lorebook 格式兼容）；WorldEntryPosition 扩展 6 个位置；Room MIGRATION_5_6 |
+| 2026-06-19 | 对话界面改造一期 — Swipe/头像/内联编辑/导入 | `a22ce4e` | MessageEntity 新增 parentMessageId/siblingIndex 支持 swipe；MessageBubble 新增 swipe 控件/头像/内联编辑；SettingsScreen 新增预设导入导出 + 世界书导入（ST lorebook 格式兼容）；WorldEntryPosition 扩展 6 个位置；Room MIGRATION_5_6 |
+| 2026-06-19 | 对话界面改造二期 — Continue + 浮动流式面板 | TBD | MessageBubble 新增 Continue（↘按钮）+ onContinue 回调；ChatViewModel 新增 continueMessage()（追加到已有消息）；新增 StreamingPanel 浮动面板（LED 状态灯/停止/最小化）；ChatScreen Box 叠加流式面板 |
 
 > **下次工作流程：** 读此表 + 读 `remember` 项目记忆 → 快速恢复上下文 → 继续开发。

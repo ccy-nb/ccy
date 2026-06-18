@@ -74,6 +74,7 @@ fun CuteMessageBubble(
     onDelete: (() -> Unit)? = null,
     onSwipeLeft: (() -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null,
+    onContinue: (() -> Unit)? = null,
     avatarUri: String? = null,        // 角色/用户头像 URI
     characterName: String = "",       // AI 消息旁显示的角色名
     isEditing: Boolean = false,       // 是否处于内联编辑模式
@@ -229,6 +230,11 @@ fun CuteMessageBubble(
                 modifier = Modifier.padding(top = 2.dp, start = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                if (onContinue != null) {
+                    IconButton(onClick = onContinue, modifier = Modifier.size(28.dp)) {
+                        Text("↘", fontSize = 14.sp, color = Pink)
+                    }
+                }
                 if (onSpeak != null) {
                     IconButton(onClick = onSpeak, modifier = Modifier.size(28.dp)) {
                         Text("🔊", fontSize = 13.sp)
