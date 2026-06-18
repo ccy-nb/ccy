@@ -89,8 +89,7 @@ fun ChatScreen(
     val showSearch by chatViewModel.showSearch.collectAsState()
     val searchQuery by chatViewModel.searchQuery.collectAsState()
     var showMessageActions by remember { mutableStateOf<String?>(null) }
-    var editMessageId by remember { mutableStateOf<String?>(null) }
-    var editText by remember { mutableStateOf("") }
+    var editDialogState by remember { mutableStateOf<Pair<String, String>?>(null) }
     var sessionExpanded by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
@@ -111,16 +110,33 @@ fun ChatScreen(
             onDismiss = { showMessageActions = null },
             onRegenerate = { msg?.let { chatViewModel.regenerate(it) } },
             onEdit = {
-                editMessageId = msgId
-                editText = msg?.content ?: ""
+                editDialogState = msgId to (msg?.content ?: "")
             },
             onDelete = { chatViewModel.deleteMessage(msgId) },
             onBranch = if (msg?.role == Role.ASSISTANT) ({ chatViewModel.createBranch(msgId) }) else null
         )
     }
 
-    // === 内联编辑（替代 EditMessageDialog）===
-    // editMessageId != null 时 CuteMessageBubble 会显示 TextField 替代文本
+    // === 编辑消息弹窗 ===
+    if (editDialogState != null) {
+        val (editMsgId, editText) = editDialogState!!
+        var localEditText by remember(editMsgId) { mutableStateOf(editText) }
+        val editMsg = session?.messages?.find { it.id == editMsgId }
+        EditMessageDialog(
+            currentText = localEditText,
+            onTextChange = { localEditText = it },
+            onSave = {
+                chatViewModel.editMessage(editMsgId, localEditText)
+                editDialogState = null
+            },
+            onSaveAndRegenerate = if (editMsg?.role == Role.ASSISTANT) ({
+                chatViewModel.editMessage(editMsgId, localEditText)
+                chatViewModel.regenerate(editMsg)
+                editDialogState = null
+            }) else null,
+            onDismiss = { editDialogState = null }
+        )
+    }
 
     // 自动滚动到底部 — 新消息或流式文本更新时跟随
     LaunchedEffect(session?.messages?.size, streamingText) {
@@ -410,7 +426,7 @@ fun ChatScreen(
                             isLast = isLast,
                             onSwipeLeft = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeLeft(msg.id) }) else {{}},
                             onSwipeRight = if (msg.role == Role.ASSISTANT) ({ chatViewModel.swipeRight(msg.id) }) else {{}},
-                            onEdit = { editMessageId = msg.id; editText = msg.content },
+                            onEdit = { editDialogState = msg.id to msg.content },
                             onContinue = if (msg.role == Role.ASSISTANT && isLast) ({ chatViewModel.continueMessage(msg.id) }) else null,
                             onCreateBranch = if (msg.role == Role.ASSISTANT) ({ chatViewModel.createBranch(msg.id) }) else null,
                             onDelete = { chatViewModel.deleteMessage(msg.id) }

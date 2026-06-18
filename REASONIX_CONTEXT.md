@@ -42,19 +42,24 @@ app/src/main/java/com/agentapp/
 - 多 API 兼容（OpenAI + Claude），流式 chatCompletion callbackFlow
 - API 测试连接（GET /models → 模型下拉）
 - 后台协程（Application scope，切 Tab 不中断）
-- 角色列表 + 聊天列表 + 聊天界面
+- 角色列表（2列网格） + 聊天列表（酒馆风格） + 聊天界面
+- SillyTavern 风格 UI（深蓝灰/米白双色，暗橙点缀）
+- 对话气泡：角色左侧头像+名字+圆角气泡 / 用户右侧消息，swipe版本指示器，操作栏
+- 底部 LED 状态栏（脉冲灯+模型名+token计数+停止按钮）
+- 分支对话系统（长按🌿创建分支，列表缩进标记）
+- Continue / Swipe / 内联编辑（EditMessageDialog）
 - 正则替换引擎（Import regex_scripts → 消息管道）
 - 变量系统（JSONPatch 解析 + StatusPlaceHolder）
 - StatusPanel + V3StylePanel 前端卡片
 - 深度提示独立注入（角色→深度指令→世界书 AFTER_SYSTEM）
 - 世界书三级结构（角色→世界书→条目），酒馆风格 UI
 - 世界书空关键词=始终触发（酒馆 constant 逻辑）
-- 粉紫 Material 3 固定配色
-- Room 本地持久化
-- 设置页（API Key / Base URL / 模型选择 / 预设 / 主题）
+- Room 本地持久化（含 MIGRATION_6_7）
+- 设置页（5组折叠：API/预设/角色/主题/世界书，分组可展开收起）
+- 预设系统（新建/编辑/导入/导出，Temperature/MaxTokens/TopP等）
 
 ### 上次提交
-`7e698bb` 前端面板：v3_style导入+WebView渲染 + V3StylePanel组件
+`85e1de5` SillyTavern 风格改造
 
 ## 构建命令
 
@@ -84,6 +89,9 @@ cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/agent-app.apk
 | 2026-06-18 | 酒馆设置界面调研 | — | 研究 SillyTavern 9抽屉/折叠/内联编辑设计哲学；项目记忆 silly-tavern-settings-design |
 | 2026-06-19 | 对话界面改造一期 — Swipe/头像/内联编辑/导入 | `a22ce4e` | MessageEntity 新增 parentMessageId/siblingIndex 支持 swipe；MessageBubble 新增 swipe 控件/头像/内联编辑；SettingsScreen 新增预设导入导出 + 世界书导入（ST lorebook 格式兼容）；WorldEntryPosition 扩展 6 个位置；Room MIGRATION_5_6 |
 | 2026-06-19 | 对话界面改造二期 — Continue + 浮动流式面板 | `0c17820` | MessageBubble 新增 Continue（↘按钮）+ onContinue 回调；ChatViewModel 新增 continueMessage()（追加到已有消息）；新增 StreamingPanel 浮动面板（LED 状态灯/停止/最小化）；ChatScreen Box 叠加流式面板 |
-| 2026-06-19 | 对话界面改造三期 — 分支对话 | TBD | ChatRepository.branchSession() 复制消息到新会话；ChatViewModel.createBranch() 自动切换；消息长按菜单「🌿 从此创建分支」；ChatListScreen 分支缩进+🌿标记；ChatSession 新增 parentSessionId；MIGRATION_6_7 |
+| 2026-06-19 | 对话界面改造三期 — 分支对话 | `ec6bf7c` | ChatRepository.branchSession() 复制消息到新会话；ViewModel.createBranch() 自动切换；长按菜单🌿；ChatListScreen 分支缩进标记；ChatSession 新增 parentSessionId；MIGRATION_6_7 |
+| 2026-06-19 | 修复16项代码质量问题和安全隐患 | `cfe8821` | 批量修复 lint/安全/性能问题 |
+| 2026-06-19 | SillyTavern 风格改造 | `85e1de5` | Theme.kt 深蓝灰/米白双色；ChatBubble 取代旧气泡；StreamingStatusBar；ChatListScreen 酒馆风格卡片 |
+| 2026-06-20 | 三 UI 完善：内联编辑+设置折叠+角色网格 | — | ChatScreen 点编辑弹出 EditMessageDialog（仅保存/保存并重新生成）；SettingsScreen 分5组折叠（CollapsibleSection）；CharacterListScreen 两列网格卡片 |
 
-> **下次工作流程：** 读此表 + 读 `remember` 项目记忆 → 快速恢复上下文 → 继续开发。
+> **下次工作流程：** 读此表 → 快速恢复上下文 → 继续开发。

@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -230,7 +230,12 @@ fun CharacterListScreen(
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
                     items(filtered, key = { it.id }) { char ->
                         CuteCharacterCard(
                             character = char,
@@ -266,30 +271,45 @@ fun CuteCharacterCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Box(
-                Modifier.size(52.dp).clip(CircleShape).background(avatarColor),
+                Modifier.size(56.dp).clip(CircleShape).background(avatarColor),
                 contentAlignment = Alignment.Center
             ) {
                 Text(initial, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
             }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(character.name.ifEmpty { "未命名角色" }, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
-                if (character.description.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(character.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = TextGray)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                character.name.ifEmpty { "未命名角色" },
+                fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            if (character.description.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    character.description, fontSize = 12.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = TextGray,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Create, contentDescription = "编辑", tint = TextGray, modifier = Modifier.size(16.dp))
                 }
-            }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Create, contentDescription = "编辑", tint = TextGray, modifier = Modifier.size(20.dp))
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "删除", tint = Color(0xFFFF9EB5), modifier = Modifier.size(20.dp))
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = Color(0xFFFF9EB5), modifier = Modifier.size(16.dp))
+                }
             }
         }
     }

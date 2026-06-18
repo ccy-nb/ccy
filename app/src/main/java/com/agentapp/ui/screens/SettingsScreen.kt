@@ -2,6 +2,8 @@
 
 package com.agentapp.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -125,9 +127,7 @@ fun SettingsScreen(
         ) {
             Spacer(Modifier.height(12.dp))
 
-            // ===== API 连接 =====
-            SectionTitle("🔌 API 连接")
-
+            CollapsibleSection("🔌 API 连接") {
             Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     // Provider
@@ -263,10 +263,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            }
 
-            // ===== 用户身份 (Persona) =====
-            SectionTitle("👤 我的身份")
+            CollapsibleSection("👤 我的身份") {
             Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("设定你在 AI 眼中的形象，会注入到每次对话中", style = MaterialTheme.typography.bodySmall, color = TextGray)
@@ -291,11 +290,22 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            }
 
-            // ===== 推理预设 =====
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionTitle("📋 推理预设", modifier = Modifier.weight(1f))
+            CollapsibleSection(
+                title = "📋 推理预设",
+                actions = {
+                    TextButton(onClick = { presetEditDialog = Preset() }) {
+                        Text("＋ 新建", color = Pink, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { settingsViewModel.exportPresets(presets, context) }) {
+                        Text("📤", fontSize = 14.sp)
+                    }
+                    TextButton(onClick = { settingsViewModel.importPreset(context) }) {
+                        Text("📥", fontSize = 14.sp)
+                    }
+                }
+            ) {
                 TextButton(onClick = { presetEditDialog = Preset() }) {
                     Text("＋ 新建", color = Pink, fontWeight = FontWeight.Bold)
                 }
@@ -347,10 +357,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            }
 
-            // ===== 主题 =====
-            SectionTitle("🎨 主题")
+            CollapsibleSection("🎨 主题") {
             Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     listOf("system" to "跟随系统", "light" to "可爱粉", "dark" to "暗色").forEach { (mode, label) ->
@@ -367,10 +376,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            }
 
-            // ===== 世界书导入 =====
-            SectionTitle("📖 世界书")
+            CollapsibleSection("📖 世界书") {
             Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
                 Column(Modifier.padding(16.dp).fillMaxWidth()) {
                     Text("从 SillyTavern 格式的 lorebook JSON 导入", fontSize = 12.sp, color = TextGray)
@@ -394,8 +402,9 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
             // ===== 保存 =====
             Button(
@@ -422,6 +431,39 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
         text, fontWeight = FontWeight.Bold, color = PinkDark, fontSize = 14.sp,
         modifier = modifier.padding(bottom = 6.dp, start = 4.dp)
     )
+}
+
+/** 可折叠设置分区 — 点标题展开/收起 */
+@Composable
+private fun CollapsibleSection(
+    title: String,
+    initialExpanded: Boolean = true,
+    actions: @Composable (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    var expanded by remember { mutableStateOf(initialExpanded) }
+
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 6.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                if (expanded) "▼" else "▶",
+                fontSize = 10.sp,
+                color = PinkDark,
+                modifier = Modifier.padding(end = 6.dp)
+            )
+            SectionTitle(title, modifier = Modifier.weight(1f))
+            if (actions != null) actions()
+        }
+        AnimatedVisibility(visible = expanded) {
+            content()
+        }
+    }
 }
 
 // === 预设编辑弹窗 ===
