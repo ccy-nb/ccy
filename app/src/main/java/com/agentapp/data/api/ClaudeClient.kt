@@ -33,7 +33,11 @@ data class ClaudeRequest(
     val messages: List<ClaudeMessage>,
     val system: String? = null,
     val temperature: Float,
-    val stream: Boolean
+    val stream: Boolean,
+    @SerialName("top_p")
+    val topP: Float? = null,
+    @SerialName("top_k")
+    val topK: Int? = null
 )
 
 @Serializable
@@ -88,7 +92,9 @@ class ClaudeClient(private val config: ApiConfig) {
             messages = claudeMessages,
             system = systemContent.ifBlank { null },
             temperature = config.temperature,
-            stream = true
+            stream = true,
+            topP = if (config.topP != 1.0f) config.topP else null,
+            topK = if (config.topK > 0) config.topK else null
         )
 
         val url = "${config.baseUrl.trimEnd('/')}/messages"

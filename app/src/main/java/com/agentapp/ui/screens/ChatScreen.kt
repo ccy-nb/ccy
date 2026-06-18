@@ -93,6 +93,9 @@ fun ChatScreen(
 
     val session = currentSession
     val matchedWorldKeywords by chatViewModel.matchedWorldKeywords.collectAsState()
+    val presets by chatViewModel.presets.collectAsState()
+    val selectedPresetId by chatViewModel.selectedPresetId.collectAsState()
+    var presetExpanded by remember { mutableStateOf(false) }
     val varRepo = remember { VariableRepository(context) }
 
     // === 消息操作弹窗 ===
@@ -285,6 +288,53 @@ fun ChatScreen(
             val filteredMessages = if (showSearch && searchQuery.isNotBlank()) {
                 session.messages.filter { it.content.contains(searchQuery, ignoreCase = true) }
             } else session.messages
+
+            // 预设切换器
+            if (presets.isNotEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+                    val currentPreset = presets.find { it.id == selectedPresetId }
+                    val presetLabel = currentPreset?.let { "📋 ${it.name}" } ?: "📋 选择预设"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                            .clickable { presetExpanded = true }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(presetLabel, style = MaterialTheme.typography.bodySmall, color = TextGray)
+                        if (currentPreset != null) {
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "T:${currentPreset.temperature}  Tok:${currentPreset.maxTokens}",
+                                style = MaterialTheme.typography.bodySmall, fontSize = 10.sp, color = TextGray
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = presetExpanded,
+                        onDismissRequest = { presetExpanded = false }
+                    ) {
+                        presets.forEach { p ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(p.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                        Text(
+                                            "T:${p.temperature}  TopP:${p.topP}  Max:${p.maxTokens}",
+                                            fontSize = 11.sp, color = TextGray
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    chatViewModel.selectPreset(p.id)
+                                    presetExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             // 搜索栏
             if (showSearch) {

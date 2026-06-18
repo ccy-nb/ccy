@@ -281,6 +281,12 @@ fun SettingsScreen(
                         label = { Text("你的描述（外貌、性格等）") }, minLines = 2, maxLines = 3,
                         modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
                     )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = persona.personality, onValueChange = { v -> settingsViewModel.updatePersona { p -> p.copy(personality = v) } },
+                        label = { Text("你的性格") }, minLines = 2, maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
+                    )
                 }
             }
 
@@ -316,12 +322,10 @@ fun SettingsScreen(
                                 if (preset.model.isNotBlank()) {
                                     Text("模型: ${preset.model}", fontSize = 12.sp, color = TextGray)
                                 }
-                                Text("Temp: ${preset.temperature}  |  MaxTokens: ${if (preset.maxTokens == 0) "不限" else preset.maxTokens.toString()}",
+                                Text("T:${preset.temperature}  Tok:${preset.maxTokens}  Ctx:${preset.maxContext}  TopP:${preset.topP}",
                                     fontSize = 11.sp, color = TextGray)
                             }
-                            IconButton(onClick = { presetEditDialog = Preset(id = preset.id, name = preset.name,
-                                temperature = preset.temperature, maxTokens = preset.maxTokens,
-                                systemPrompt = preset.systemPrompt, model = preset.model) }) {
+                            IconButton(onClick = { presetEditDialog = preset }) {
                                 Text("✏️", fontSize = 14.sp)
                             }
                             IconButton(onClick = { settingsViewModel.deletePreset(preset.id) }) {
@@ -392,7 +396,13 @@ private fun PresetEditDialog(
 ) {
     var name by remember { mutableStateOf(preset.name) }
     var temperature by remember { mutableStateOf(preset.temperature.toString()) }
-    var maxTokens by remember { mutableStateOf(if (preset.maxTokens == 0) "" else preset.maxTokens.toString()) }
+    var maxTokens by remember { mutableStateOf(preset.maxTokens.toString()) }
+    var maxContext by remember { mutableStateOf(preset.maxContext.toString()) }
+    var topP by remember { mutableStateOf(preset.topP.toString()) }
+    var topK by remember { mutableStateOf(if (preset.topK == 0) "" else preset.topK.toString()) }
+    var frequencyPenalty by remember { mutableStateOf(preset.frequencyPenalty.toString()) }
+    var presencePenalty by remember { mutableStateOf(preset.presencePenalty.toString()) }
+    var minP by remember { mutableStateOf(preset.minP.toString()) }
     var model by remember { mutableStateOf(preset.model) }
     var systemPrompt by remember { mutableStateOf(preset.systemPrompt) }
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Pink, unfocusedBorderColor = Color(0xFFE8DDE8), cursorColor = Pink)
@@ -401,33 +411,81 @@ private fun PresetEditDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (preset.id.isEmpty()) "新建预设 📋" else "编辑预设 ✏️", fontWeight = FontWeight.Bold) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("预设名称") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("模型（留空=使用全局）") },
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("模型（留空=全局）") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(6.dp))
+
+                // 第 1 行：Temperature + MaxTokens + MaxContext
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedTextField(value = temperature, onValueChange = { temperature = it },
-                        label = { Text("Temperature") }, singleLine = true,
+                        label = { Text("Temp") }, singleLine = true,
                         modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
                     OutlinedTextField(value = maxTokens, onValueChange = { maxTokens = it },
-                        label = { Text("MaxTokens") }, singleLine = true,
+                        label = { Text("MaxTok") }, singleLine = true,
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                    OutlinedTextField(value = maxContext, onValueChange = { maxContext = it },
+                        label = { Text("Ctx") }, singleLine = true,
                         modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
+
+                // 第 2 行：TopP + TopK + MinP
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(value = topP, onValueChange = { topP = it },
+                        label = { Text("TopP") }, singleLine = true,
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                    OutlinedTextField(value = topK, onValueChange = { topK = it },
+                        label = { Text("TopK") }, singleLine = true,
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                    OutlinedTextField(value = minP, onValueChange = { minP = it },
+                        label = { Text("MinP") }, singleLine = true,
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                }
+                Spacer(Modifier.height(6.dp))
+
+                // 第 3 行：FreqPenalty + PresencePenalty
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(value = frequencyPenalty, onValueChange = { frequencyPenalty = it },
+                        label = { Text("FreqPen") }, singleLine = true,
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                    OutlinedTextField(value = presencePenalty, onValueChange = { presencePenalty = it },
+                        label = { Text("PresPen") }, singleLine = true,
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                }
+                Spacer(Modifier.height(6.dp))
+
                 OutlinedTextField(value = systemPrompt, onValueChange = { systemPrompt = it },
-                    label = { Text("System Prompt（可选）") }, minLines = 2, maxLines = 4,
+                    label = { Text("System Prompt（可选）") }, minLines = 2, maxLines = 3,
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors)
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                val temp = temperature.toFloatOrNull() ?: 0.7f
-                val tokens = maxTokens.toIntOrNull() ?: 0
-                onSave(preset.copy(name = name, temperature = temp.coerceIn(0f, 2f),
-                    maxTokens = tokens, model = model, systemPrompt = systemPrompt))
+                val temp = temperature.toFloatOrNull()?.coerceIn(0f, 2f) ?: 0.7f
+                val tokens = maxTokens.toIntOrNull() ?: 300
+                val ctx = maxContext.toIntOrNull() ?: 4096
+                val tp = topP.toFloatOrNull()?.coerceIn(0f, 1f) ?: 1.0f
+                val tk = topK.toIntOrNull()?.coerceIn(0, 1000) ?: 0
+                val fp = frequencyPenalty.toFloatOrNull()?.coerceIn(-2f, 2f) ?: 0f
+                val pp = presencePenalty.toFloatOrNull()?.coerceIn(-2f, 2f) ?: 0f
+                val mp = minP.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f
+                onSave(preset.copy(
+                    name = name,
+                    temperature = temp,
+                    maxTokens = tokens,
+                    maxContext = ctx,
+                    topP = tp,
+                    topK = tk,
+                    frequencyPenalty = fp,
+                    presencePenalty = pp,
+                    minP = mp,
+                    model = model,
+                    systemPrompt = systemPrompt
+                ))
             }) { Text("保存", fontWeight = FontWeight.Bold, color = PinkDark) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },

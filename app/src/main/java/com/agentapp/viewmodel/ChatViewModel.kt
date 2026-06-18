@@ -11,6 +11,9 @@ import com.agentapp.data.model.Role
 import com.agentapp.data.model.WorldEntryPosition
 import com.agentapp.data.repository.CharacterRepository
 import com.agentapp.data.repository.ChatRepository
+import com.agentapp.data.model.ApiConfig
+import com.agentapp.data.model.Preset
+import com.agentapp.data.repository.PresetRepository
 import com.agentapp.data.repository.SettingsRepository
 import com.agentapp.data.repository.WorldRepository
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +34,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val personaRepo = com.agentapp.data.repository.PersonaRepository(application)
     private val regexRepo = com.agentapp.data.repository.RegexRepository(application)
     private val varRepo = com.agentapp.data.repository.VariableRepository(application)
+    private val presetRepo = PresetRepository(application)
     private val apiFactory = ApiFactory()
 
     private val _currentSession = MutableStateFlow<ChatSession?>(null)
@@ -60,6 +64,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _showSearch = MutableStateFlow(false)
     val showSearch: StateFlow<Boolean> = _showSearch.asStateFlow()
 
+    private val _presets = MutableStateFlow<List<Preset>>(emptyList())
+    val presets: StateFlow<List<Preset>> = _presets.asStateFlow()
+
+    private val _selectedPresetId = MutableStateFlow<String?>(null)
+    val selectedPresetId: StateFlow<String?> = _selectedPresetId.asStateFlow()
+
     private var messagesJob: Job? = null
     private var streamJob: Job? = null  // 流式请求协程引用
     private val sendMutex = Mutex()     // 防发送竞态
@@ -72,6 +82,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val session = chatRepo.get(sessionId) ?: return@launch
             _currentSession.value = session
             _allSessions.value = chatRepo.list(session.characterId)
+
+            // 加载预设列表
+            _presets.value = presetRepo.list()
+            // 尝试选中第一个预设
+            if (_selectedPresetId.value == null && _presets.value.isNotEmpty()) {
+                _selectedPresetId.value = _presets.value.first().id
+            }
 
             // 监听消息变化
             messagesJob?.cancel()
@@ -188,6 +205,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _currentSession.value = session
             _isLoading.value = false
             _streamingText.value = ""
+            // 刷新预设列表
+            _presets.value = presetRepo.list()
             messagesJob = viewModelScope.launch {
                 chatRepo.getMessagesFlow(sessionId).collect { messages ->
                     _currentSession.value = _currentSession.value?.copy(messages = messages)
@@ -210,6 +229,53 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _allSessions.value = chatRepo.list(session.characterId)
         }
+    }
+
+    fun selectPreset(presetId: String?) {
+        _selectedPresetId.value = presetId
+    }
+
+    /** 合并预设参数到 ApiConfig：预设值覆盖全局配置 */
+    private fun mergePresetToConfig(config: ApiConfig): ApiConfig {
+        val presetId = _selectedPresetId.value ?: return config
+        val preset = _presets.value.find { it.id == presetId } ?: return config
+        return config.copy(
+            temperature = preset.temperature,
+            maxTokens = preset.maxTokens,
+            maxContext = preset.maxContext,
+            topP = preset.topP,
+            topK = preset.topK,
+            frequencyPenalty = preset.frequencyPenalty,
+            presencePenalty = preset.presencePenalty,
+            repetitionPenalty = preset.repetitionPenalty,
+            minP = preset.minP,
+            model = if (preset.model.isNotBlank()) preset.model else config.model
+        )
+    }
+
+    /** 按上下文窗口截断历史消息：保留 system prompt + 最近的 N 条消息 */
+    private fun truncateMessages(messages: List<Message>, config: ApiConfig): List<Message> {
+        val maxTokens = config.maxTokens
+        val maxContext = config.maxContext
+        // 分离 system prompt
+        val systemMsgs = messages.filter { it.role == Role.SYSTEM }
+        val chatMsgs = messages.filter { it.role != Role.SYSTEM }
+        if (chatMsgs.isEmpty()) return messages
+
+        val tokenBudget = maxContext - maxTokens
+        if (tokenBudget <= 0) return systemMsgs + chatMsgs.takeLast(10) // 兜底：至少保留 10 条
+
+        // 粗略估算：中文约 1.5 token/字，英文约 1 token/词
+        var totalEstimate = 0
+        val reversed = chatMsgs.reversed()
+        val keepCount = reversed.indexOfFirst { msg ->
+            val estimated = (msg.content.length / 2) + 4  // 加 4 作为角色标记开销
+            totalEstimate += estimated
+            totalEstimate > tokenBudget
+        }.let { if (it < 0) reversed.size else it }
+
+        val keep = chatMsgs.takeLast(maxOf(keepCount, 4))  // 至少保留 4 条
+        return systemMsgs + keep
     }
 
     fun speakText(text: String) {
@@ -262,13 +328,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 try {
-                    val cfg = settingsRepo.getApiConfigSync()
+                    val baseCfg = settingsRepo.getApiConfigSync()
+                    val cfg = mergePresetToConfig(baseCfg)
                     val character = characterRepo.get(session.characterId)
 
                     // 构建带世界书的 API 消息列表
                     val apiMsgs = buildApiMessages(updated.messages, character)
+                    // 按上下文窗口截断
+                    val truncatedMsgs = truncateMessages(apiMsgs, cfg)
 
-                    apiFactory.chatStream(cfg, apiMsgs).collect { chunk ->
+                    apiFactory.chatStream(cfg, truncatedMsgs).collect { chunk ->
                         builder.append(chunk)
                         _streamingText.value = regexRepo.applyScripts(builder.toString(), scripts)
                     }

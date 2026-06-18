@@ -79,5 +79,7 @@ cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/agent-app.apk
 | 日期 | 变更 | Commit | 备注 |
 |------|------|--------|------|
 | 2026-06-17 | 初始化会话日志机制 + 自动保存工作流 | — | 新增 verify-before-git-push 记忆加入「保存项目状态」步骤；REASONIX_CONTEXT.md 底部追加会话日志区 |
+| 2026-06-18 | 修复流式生成长文本不自动滚动 | `f987a86` | LaunchedEffect 增加 streamingText 依赖 + 已读保护；全局记忆 auto-export-apk |
+| 2026-06-18 | 字数控制 + 预设系统全面改造 | — | Preset/ApiConfig 扩展采样参数(topP/topK/freqPenalty/presPenalty/minP/maxContext)；ChatViewModel 合并预设到 API 调用；上下文窗口截断；ChatScreen 预设切换下拉；Persona 扩展；设置页编辑弹窗更新 |
 
 > **下次工作流程：** 读此表 + 读 `remember` 项目记忆 → 快速恢复上下文 → 继续开发。

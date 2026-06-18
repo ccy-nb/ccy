@@ -44,7 +44,19 @@ data class ChatCompletionRequest(
     val temperature: Float,
     val stream: Boolean,
     @kotlinx.serialization.SerialName("max_tokens")
-    val maxTokens: Int? = null
+    val maxTokens: Int? = null,
+    @kotlinx.serialization.SerialName("top_p")
+    val topP: Float? = null,
+    @kotlinx.serialization.SerialName("top_k")
+    val topK: Int? = null,
+    @kotlinx.serialization.SerialName("frequency_penalty")
+    val frequencyPenalty: Float? = null,
+    @kotlinx.serialization.SerialName("presence_penalty")
+    val presencePenalty: Float? = null,
+    @kotlinx.serialization.SerialName("repetition_penalty")
+    val repetitionPenalty: Float? = null,
+    @kotlinx.serialization.SerialName("min_p")
+    val minP: Float? = null
 )
 
 @Serializable
@@ -97,7 +109,13 @@ class OpenAiClient(private val config: ApiConfig) {
             messages = chatMessages,
             temperature = config.temperature,
             stream = true,
-            maxTokens = if (config.maxTokens > 0) config.maxTokens else null
+            maxTokens = if (config.maxTokens > 0) config.maxTokens else null,
+            topP = if (config.topP != 1.0f) config.topP else null,
+            topK = if (config.topK > 0) config.topK else null,
+            frequencyPenalty = if (config.frequencyPenalty != 0f) config.frequencyPenalty else null,
+            presencePenalty = if (config.presencePenalty != 0f) config.presencePenalty else null,
+            repetitionPenalty = if (config.repetitionPenalty != 1.0f) config.repetitionPenalty else null,
+            minP = if (config.minP > 0f) config.minP else null
         )
 
         val url = "${config.baseUrl.trimEnd('/')}/chat/completions"
@@ -193,7 +211,13 @@ class OpenAiClient(private val config: ApiConfig) {
             messages = chatMessages,
             temperature = config.temperature,
             stream = false,
-            maxTokens = if (config.maxTokens > 0) config.maxTokens else null
+            maxTokens = if (config.maxTokens > 0) config.maxTokens else null,
+            topP = if (config.topP != 1.0f) config.topP else null,
+            topK = if (config.topK > 0) config.topK else null,
+            frequencyPenalty = if (config.frequencyPenalty != 0f) config.frequencyPenalty else null,
+            presencePenalty = if (config.presencePenalty != 0f) config.presencePenalty else null,
+            repetitionPenalty = if (config.repetitionPenalty != 1.0f) config.repetitionPenalty else null,
+            minP = if (config.minP > 0f) config.minP else null
         )
 
         val url = "${config.baseUrl.trimEnd('/')}/chat/completions"
