@@ -112,7 +112,8 @@ fun ChatScreen(
                 editMessageId = msgId
                 editText = msg?.content ?: ""
             },
-            onDelete = { chatViewModel.deleteMessage(msgId) }
+            onDelete = { chatViewModel.deleteMessage(msgId) },
+            onBranch = if (msg?.role == Role.ASSISTANT) ({ chatViewModel.createBranch(msgId) }) else null
         )
     }
 

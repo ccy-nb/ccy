@@ -21,5 +21,6 @@ data class ChatSessionEntity(
     @PrimaryKey val id: String,
     val characterId: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val parentSessionId: String? = null  // 分支来源会话 ID
 )

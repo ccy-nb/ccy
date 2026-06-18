@@ -133,6 +133,51 @@ class ChatRepository(private val context: Context) {
         messageDao.deleteById(target.id)
     }
 
+    /**
+     * 从源会话的某条消息创建分支。
+     * 复制 fromMessageId 之前的所有消息到新会话，保留原有角色顺序。
+     */
+    suspend fun branchSession(characterId: String, sourceSessionId: String, fromMessageId: String): ChatSession? {
+        val sourceSession = sessionDao.get(sourceSessionId) ?: return null
+        val allMessages = messageDao.listBySession(sourceSessionId)
+        // 找到目标消息在列表中的索引
+        val targetIndex = allMessages.indexOfFirst { it.id == fromMessageId }
+        if (targetIndex < 0) return null
+        // 复制目标消息及之前的所有 root 消息（不含 swipe 版本）
+        val sourceRoots = allMessages.filter { it.parentMessageId == null }.sortedBy { it.timestamp }
+        val cutIndex = sourceRoots.indexOfFirst { it.id == fromMessageId }
+        if (cutIndex < 0) return null
+        val messagesToCopy = sourceRoots.take(cutIndex + 1)
+
+        // 创建新会话
+        val newId = "${characterId}_branch_${System.currentTimeMillis()}"
+        val newSession = ChatSessionEntity(
+            id = newId,
+            characterId = characterId,
+            parentSessionId = sourceSessionId,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        sessionDao.save(newSession)
+
+        // 复制消息（使用新 ID 避免主键冲突）
+        val newMessages = messagesToCopy.map { original ->
+            MessageEntity(
+                id = "${newId}_${original.id}",
+                sessionId = newId,
+                role = original.role,
+                content = original.content,
+                timestamp = original.timestamp,
+                parentMessageId = null,
+                siblingIndex = 0
+            )
+        }
+        if (newMessages.isNotEmpty()) {
+            messageDao.saveAll(newMessages)
+        }
+        return newSession.toDomain(newMessages)
+    }
+
     suspend fun create(characterId: String): ChatSession {
         val session = ChatSession(
             id = "${characterId}_${System.currentTimeMillis()}",
@@ -150,14 +195,16 @@ private fun ChatSessionEntity.toDomain(messages: List<MessageEntity> = emptyList
     characterId = characterId,
     messages = messages.map { it.toDomain() },
     createdAt = createdAt,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    parentSessionId = parentSessionId
 )
 
 private fun ChatSession.toEntity() = ChatSessionEntity(
     id = id,
     characterId = characterId,
     createdAt = createdAt,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    parentSessionId = parentSessionId
 )
 
 private fun MessageEntity.toDomain() = Message(

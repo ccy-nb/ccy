@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.agentapp.viewmodel.ChatListViewModel
@@ -86,6 +87,7 @@ fun ChatListScreen(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
                 items(sessions, key = { it.first.id }) { (session, charName) ->
+                    val isBranch = session.parentSessionId != null
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -97,17 +99,26 @@ fun ChatListScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            modifier = Modifier
+                                .padding(start = if (isBranch) 24.dp else 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
+                                .fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Filled.Chat, contentDescription = null,
+                                if (isBranch) Icons.Default.Delete else Icons.AutoMirrored.Filled.Chat,
+                                contentDescription = null,
                                 modifier = Modifier.size(36.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = if (isBranch) androidx.compose.ui.graphics.Color(0xFFB5A8D5) else MaterialTheme.colorScheme.primary
                             )
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(charName, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(charName, fontWeight = FontWeight.Bold)
+                                    if (isBranch) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("🌿", fontSize = 12.sp)
+                                    }
+                                }
                                 val lastMsg = session.messages.lastOrNull()
                                 Text(
                                     lastMsg?.content?.take(60) ?: "空对话",

@@ -197,6 +197,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 从指定消息创建分支会话 */
+    fun createBranch(fromMessageId: String) {
+        val session = _currentSession.value ?: return
+        viewModelScope.launch {
+            val branch = chatRepo.branchSession(session.characterId, session.id, fromMessageId)
+            if (branch != null) {
+                // 刷新会话列表
+                _allSessions.value = chatRepo.list(session.characterId)
+                // 自动切换到新分支
+                switchSession(branch.id)
+            }
+        }
+    }
+
     /** 继续生成：在最后一条 AI 消息后追加内容，不创建新消息 */
     fun continueMessage(msgId: String) {
         val session = _currentSession.value ?: return

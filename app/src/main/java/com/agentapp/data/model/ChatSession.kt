@@ -8,5 +8,6 @@ data class ChatSession(
     val characterId: String,
     val messages: List<Message> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val parentSessionId: String? = null  // 分支来源会话 ID
 )

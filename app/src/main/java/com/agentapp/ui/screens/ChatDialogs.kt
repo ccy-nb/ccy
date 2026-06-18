@@ -28,7 +28,8 @@ fun MessageActionDialog(
     onDismiss: () -> Unit,
     onRegenerate: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onBranch: (() -> Unit)? = null
 ) {
     val isAi = message?.role == Role.ASSISTANT
 
@@ -42,6 +43,12 @@ fun MessageActionDialog(
                         onClick = { onRegenerate(); onDismiss() },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("🔄 重新生成", fontWeight = FontWeight.Medium) }
+                    if (onBranch != null) {
+                        TextButton(
+                            onClick = { onBranch(); onDismiss() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("🌿 从此创建分支", fontWeight = FontWeight.Medium) }
+                    }
                 }
                 TextButton(
                     onClick = { onEdit(); onDismiss() },
