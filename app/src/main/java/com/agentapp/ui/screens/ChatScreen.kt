@@ -129,10 +129,18 @@ fun ChatScreen(
         )
     }
 
-    // 自动滚动到底部
-    LaunchedEffect(session?.messages?.size) {
-        if (session != null && session.messages.isNotEmpty()) {
-            listState.animateScrollToItem(session.messages.size - 1)
+    // 自动滚动到底部 — 新消息或流式文本更新时跟随
+    LaunchedEffect(session?.messages?.size, streamingText) {
+        if (session == null || session.messages.isEmpty()) return@LaunchedEffect
+        val targetIndex = if (streamingText.isNotEmpty()) {
+            session.messages.size  // streaming item 在消息列表之后
+        } else {
+            session.messages.size - 1  // 最后一条消息
+        }
+        // 只在用户已经在底部附近时才自动滚动（不抢手动翻阅）
+        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+        if (lastVisible >= targetIndex - 1) {
+            listState.animateScrollToItem(targetIndex)
         }
     }
 
