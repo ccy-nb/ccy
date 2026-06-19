@@ -381,8 +381,8 @@ fun ChatScreen(
                         matchedWorldKeywords.take(6).forEach { keyword ->
                             Text(
                                 text = keyword, fontSize = 11.sp,
-                                color = Color(0xFF8E7CC3), fontWeight = FontWeight.Medium,
-                                modifier = Modifier.background(Color(0xFFF0ECF7), RoundedCornerShape(8.dp))
+                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium,
+                                modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }

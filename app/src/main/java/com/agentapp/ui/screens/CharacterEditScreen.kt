@@ -74,9 +74,9 @@ fun CharacterEditScreen(character: Character, onSave: (Character) -> Unit, onCan
     }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = Pink,
-        unfocusedBorderColor = Color(0xFFE8DDE8),
-        cursorColor = Pink
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+        cursorColor = MaterialTheme.colorScheme.primary
     )
 
     Scaffold(

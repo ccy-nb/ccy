@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.agentapp.data.model.flattenVariables
 import com.agentapp.data.model.formatVariableTree
 import com.agentapp.data.repository.VariableRepository
 import com.agentapp.ui.theme.TextGray
@@ -41,7 +42,7 @@ fun StatusPanel(
 
     if (vars.keys.isEmpty()) return
 
-    val flatVars = variableRepository.flattenVariables(vars)
+    val flatVars = flattenVariables(vars)
     if (flatVars.isEmpty()) return
 
     // 按顶级分组
@@ -59,7 +60,7 @@ fun StatusPanel(
             .padding(vertical = 6.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1A1A2E) // 深色背景，类似酒馆风格
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
@@ -68,7 +69,7 @@ fun StatusPanel(
                 "📊 当前状态",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFC4B5FD)
+                color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(8.dp))
 
@@ -79,7 +80,7 @@ fun StatusPanel(
                     groupLabel,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF8B7EC8)
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.height(3.dp))
 
@@ -95,13 +96,13 @@ fun StatusPanel(
                                 Text(
                                     label,
                                     fontSize = 10.sp,
-                                    color = Color(0xFF9CA3AF)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     value,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFFE5E7EB)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }

@@ -9,6 +9,7 @@ import com.agentapp.data.model.WorldBook
 import com.agentapp.data.model.WorldEntry
 import com.agentapp.data.model.WorldEntryPosition
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlin.random.Random
 
@@ -66,9 +67,14 @@ class WorldRepository(private val context: Context) {
         bookDao.deleteById(id)
     }
 
-    /** 获取某世界书的所有条目 */
+    /** 获取某世界书的所有条目（Flow）*/
     fun listEntriesByBookFlow(bookId: String): Flow<List<WorldEntry>> {
         return dao.listByBookFlow(bookId).map { entities -> entities.map { it.toDomain() } }
+    }
+
+    /** 获取某世界书的所有条目（一次性）*/
+    suspend fun listEntriesByBook(bookId: String): List<WorldEntry> {
+        return listEntriesByBookFlow(bookId).first()
     }
 
     suspend fun delete(id: String) {

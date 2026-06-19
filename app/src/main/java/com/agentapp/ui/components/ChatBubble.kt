@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import com.agentapp.ui.theme.AccentBlue
 import com.agentapp.ui.theme.AccentOrange
 import com.agentapp.ui.theme.AvatarColors
@@ -79,23 +81,23 @@ fun ChatBubble(
     // 用户消息靠右，角色消息靠左
     val alignment = if (isUser) Arrangement.End else Arrangement.Start
     val bubbleColor = if (isUser) {
-        if (MaterialTheme.colorScheme.background == Color(0xFF1A1B26)) DarkBubbleUser
-        else LightBubbleUser
+        if (MaterialTheme.colorScheme.background == com.agentapp.ui.theme.DarkBg) com.agentapp.ui.theme.DarkBubbleUser
+        else com.agentapp.ui.theme.LightBubbleUser
     } else {
-        if (MaterialTheme.colorScheme.background == Color(0xFF1A1B26)) DarkBubbleAssist
-        else LightBubbleAssist
+        if (MaterialTheme.colorScheme.background == com.agentapp.ui.theme.DarkBg) com.agentapp.ui.theme.DarkBubbleAssist
+        else com.agentapp.ui.theme.LightBubbleAssist
     }
     val bubbleShape = if (isUser) {
-        RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)
+        RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp)
     } else {
-        RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
+        RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp)
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = alignment,
             verticalAlignment = Alignment.Top
         ) {
@@ -104,7 +106,7 @@ fun ChatBubble(
                 CharacterAvatar(
                     name = characterName,
                     avatarUri = characterAvatarUri,
-                    size = 36,
+                    size = 42,
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -112,7 +114,7 @@ fun ChatBubble(
 
             Column(
                 horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-                modifier = Modifier.widthIn(max = 300.dp)
+                modifier = Modifier.widthIn(max = 320.dp)
             ) {
                 // 名字栏（仅角色消息）
                 if (!isUser) {
@@ -132,7 +134,7 @@ fun ChatBubble(
                     modifier = Modifier
                         .clip(bubbleShape)
                         .background(bubbleColor)
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     if (isStreaming) {
                         // 流式加载占位
@@ -320,14 +322,11 @@ fun CharacterAvatar(
             .background(bgColor),
         contentAlignment = Alignment.Center
     ) {
-        if (avatarUri != null) {
-            // TODO: 用 Coil 加载图片
-            // AsyncImage(model = avatarUri, ...)
-            Text(
-                text = name.take(1).uppercase(),
-                fontSize = (size * 0.4).sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+        if (avatarUri != null && avatarUri.isNotBlank()) {
+            AsyncImage(
+                model = avatarUri,
+                contentDescription = name,
+                modifier = Modifier.size(size.dp).clip(CircleShape)
             )
         } else {
             Text(

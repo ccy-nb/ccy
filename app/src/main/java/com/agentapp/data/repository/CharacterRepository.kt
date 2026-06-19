@@ -299,6 +299,29 @@ class CharacterRepository(private val context: Context) {
         }
         return null
     }
+
+    /** 导出角色为 JSON 字符串 */
+    fun exportToJson(character: com.agentapp.data.model.Character): String {
+        val jsonBuilder = kotlinx.serialization.json.Json { prettyPrint = true; ignoreUnknownKeys = true }
+        return jsonBuilder.encodeToString(com.agentapp.data.model.Character.serializer(), character)
+    }
+
+    /** 导出角色为 JSON 文件并通过分享发送 */
+    fun shareCharacter(context: android.content.Context, character: com.agentapp.data.model.Character) {
+        try {
+            val jsonStr = exportToJson(character)
+            val file = java.io.File(context.cacheDir, character.name + "_" + System.currentTimeMillis() + ".json")
+            file.writeText(jsonStr)
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "导出角色"))
+        } catch (_: Exception) { }
+    }
+
 }
 
 // === Entity ↔ Domain mapping ===

@@ -2,6 +2,8 @@
 
 package com.agentapp.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,12 +51,14 @@ import com.agentapp.data.model.Character
 import com.agentapp.data.model.WorldBook
 import com.agentapp.data.model.WorldEntry
 import com.agentapp.data.model.WorldEntryPosition
+import com.agentapp.ui.theme.CoralAccent
 import com.agentapp.ui.theme.Pink
 import com.agentapp.ui.theme.PinkDark
 import com.agentapp.ui.theme.PinkLight
 import com.agentapp.ui.theme.TextGray
 import com.agentapp.ui.theme.WarmWhite
 import com.agentapp.viewmodel.WorldBookViewModel
+import kotlinx.coroutines.launch
 
 /**
  * 世界书 Tab — 两级结构：
@@ -71,6 +76,28 @@ fun WorldBookScreen(
     val selectedBook by worldBookViewModel.selectedBook.collectAsState()
     val entries by worldBookViewModel.entries.collectAsState()
     val characters by worldBookViewModel.characters.collectAsState()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // 文件选择器：导入世界书 JSON
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val inputStream = ctx.contentResolver.openInputStream(uri)
+                    val text = inputStream?.bufferedReader()?.readText() ?: ""
+                    inputStream?.close()
+                    if (text.isNotBlank()) {
+                        worldBookViewModel.importBookFromJson(text, ctx)
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(ctx, "❌ 读取文件失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     // 第二级：条目列表
     if (selectedBook != null) {
@@ -122,6 +149,24 @@ fun WorldBookScreen(
                 title = { Text("📖 世界书", fontWeight = FontWeight.Bold) },
                 navigationIcon = { if (showBack) IconButton(onClick = onBack) { Text("←", fontSize = 20.sp) } },
                 actions = {
+                    IconButton(onClick = {
+                        importLauncher.launch(arrayOf("application/json", "*/*"))
+                    }) {
+                        Text("📥", fontSize = 18.sp)
+                    }
+                    IconButton(onClick = {
+                        if (books.isEmpty()) {
+                            android.widget.Toast.makeText(ctx, "没有可导出的世界书", android.widget.Toast.LENGTH_SHORT).show()
+                        } else if (books.size == 1) {
+                            worldBookViewModel.exportBook(books.first().id, ctx)
+                        } else if (selectedBook != null) {
+                            worldBookViewModel.exportBook(selectedBook!!.id, ctx)
+                        } else {
+                            worldBookViewModel.exportBook(books.first().id, ctx)
+                        }
+                    }) {
+                        Text("📤", fontSize = 18.sp)
+                    }
                     IconButton(onClick = { showCreateDialog = true }) {
                         Text("＋", fontSize = 20.sp)
                     }
@@ -183,7 +228,7 @@ private fun WorldBookCard(
                 )
             }
             TextButton(onClick = onDelete) {
-                Text("删除", color = Color(0xFFFF6B8A), fontSize = 13.sp)
+                Text("删除", color = CoralAccent, fontSize = 13.sp)
             }
         }
     }
@@ -265,7 +310,7 @@ fun WorldEntryCard(entry: WorldEntry, onEdit: () -> Unit, onDelete: () -> Unit) 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(Modifier.padding(12.dp)) {
@@ -278,20 +323,20 @@ fun WorldEntryCard(entry: WorldEntry, onEdit: () -> Unit, onDelete: () -> Unit) 
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(positionLabel, fontSize = 11.sp, color = Color(0xFF8E7CC3), fontWeight = FontWeight.Medium)
+                Text(positionLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                 if (entry.probability < 1.0f) {
-                    Text("🎲 ${(entry.probability * 100).toInt()}%", fontSize = 11.sp, color = Color(0xFF8E7CC3))
+                    Text("🎲 ${(entry.probability * 100).toInt()}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                 }
                 if (!entry.enabled) {
-                    Text("🚫 已禁用", fontSize = 11.sp, color = Color(0xFFFF6B8A))
+                    Text("🚫 已禁用", fontSize = 11.sp, color = CoralAccent)
                 }
             }
             Spacer(Modifier.height(4.dp))
             Text(entry.content.take(100), fontSize = 13.sp, color = TextGray, maxLines = 3)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onEdit) { Text("编辑", color = Pink) }
-                TextButton(onClick = onDelete) { Text("删除", color = Color(0xFFFF6B8A)) }
+                TextButton(onClick = onEdit) { Text("编辑", color = MaterialTheme.colorScheme.primary) }
+                TextButton(onClick = onDelete) { Text("删除", color = CoralAccent) }
             }
         }
     }
@@ -337,7 +382,7 @@ private fun WorldEntryEditScreen(
             text = { Text("当前编辑的修改尚未保存，确定要退出吗？") },
             confirmButton = {
                 TextButton(onClick = { showDiscardDialog = false; onCancel() }) {
-                    Text("放弃", color = Color(0xFFFF6B8A), fontWeight = FontWeight.Medium)
+                    Text("放弃", color = CoralAccent, fontWeight = FontWeight.Medium)
                 }
             },
             dismissButton = {

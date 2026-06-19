@@ -15,13 +15,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
@@ -58,8 +61,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.agentapp.data.model.Character
 import com.agentapp.ui.theme.AvatarColors
+import com.agentapp.ui.theme.CoralAccent
 import com.agentapp.ui.theme.TextGray
+import com.agentapp.data.model.ChatSession
 import com.agentapp.viewmodel.CharacterListViewModel
+import com.agentapp.viewmodel.ChatListViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,14 +75,16 @@ import java.io.File
 @Composable
 fun CharacterListScreen(
     modifier: Modifier = Modifier,
-    characterListViewModel: CharacterListViewModel
+    characterListViewModel: CharacterListViewModel,
+    chatListViewModel: ChatListViewModel? = null,
+    onEnterChat: (sessionId: String, charName: String) -> Unit = { _, _ -> }
 ) {
     val characters by characterListViewModel.characters.collectAsState()
     val searchQuery by characterListViewModel.searchQuery.collectAsState()
     var showEdit by remember { mutableStateOf(false) }
     var editingCharacter by remember { mutableStateOf<Character?>(null) }
-    var chattingCharacterId by remember { mutableStateOf<String?>(null) }
-    var chattingCharacterName by remember { mutableStateOf("") }
+    var selectedCharId by remember { mutableStateOf<String?>(null) }
+    var selectedCharName by remember { mutableStateOf("") }
     var showUrlDialog by remember { mutableStateOf(false) }
     var urlInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -131,17 +139,82 @@ fun CharacterListScreen(
         return
     }
 
-    // 对话模式
-    if (chattingCharacterId != null) {
-        ChatScreen(
-            sessionId = chattingCharacterId!!,
-            characterName = chattingCharacterName,
-            modifier = Modifier,
-            onBack = {
-                chattingCharacterId = null
-                chattingCharacterName = ""
+    // 角色的对话列表模式
+    if (selectedCharId != null) {
+        val charId = selectedCharId!!
+        val charName = selectedCharName
+        val appCtx = androidx.compose.ui.platform.LocalContext.current.applicationContext
+        val chatRepo = remember(appCtx) { com.agentapp.data.repository.ChatRepository(appCtx) }
+        val sessions by chatRepo.listFlow(charId).collectAsState(initial = emptyList())
+
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("📋 $charName", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    navigationIcon = {
+                        IconButton(onClick = { selectedCharId = null; selectedCharName = "" }) {
+                            Text("←", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            scope.launch {
+                                characterListViewModel.createNewSession(charId) { sessionId, name ->
+                                    onEnterChat(sessionId, name)
+                                }
+                            }
+                        }) {
+                            Icon(Icons.Default.Add, contentDescription = "新建对话", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { padding ->
+            if (sessions.isEmpty()) {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("暂无对话", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = {
+                            scope.launch {
+                                characterListViewModel.createNewSession(charId) { sessionId, name ->
+                                    onEnterChat(sessionId, name)
+                                }
+                            }
+                        }) {
+                            Text("＋ 创建新对话", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            } else {
+                // Show sessions in a list
+                LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+                    items(sessions, key = { it.id }) { session ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
+                                onEnterChat(session.id, charName)
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            elevation = CardDefaults.cardElevation(1.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("对话 ${session.messages.size} 条", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                    if (session.parentSessionId != null) {
+                                        Text("🌿 分支", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                Icon(Icons.Default.Chat, contentDescription = "进入对话",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                            }
+                        }
+                    }
+                }
             }
-        )
+        }
         return
     }
 
@@ -181,7 +254,7 @@ fun CharacterListScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.padding(top = 8.dp),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -208,13 +281,13 @@ fun CharacterListScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { characterListViewModel.setSearchQuery(it) },
-                placeholder = { Text("搜索角色...", color = TextGray) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextGray) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(24.dp),
+                placeholder = { Text("搜索角色...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color(0xFFE8DDE8)
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                 ),
                 singleLine = true
             )
@@ -241,12 +314,8 @@ fun CharacterListScreen(
                             character = char,
                             colorIndex = (char.id.hashCode() and Int.MAX_VALUE) % AvatarColors.size,
                             onClick = {
-                                scope.launch {
-                                    characterListViewModel.startChatWith(char.id) { sessionId, charName ->
-                                        chattingCharacterId = sessionId
-                                        chattingCharacterName = charName
-                                    }
-                                }
+                                selectedCharId = char.id
+                                selectedCharName = char.name
                             },
                             onEdit = { editingCharacter = char; showEdit = true },
                             onDelete = { characterListViewModel.deleteCharacter(char.id) }
@@ -271,8 +340,8 @@ fun CuteCharacterCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -280,12 +349,12 @@ fun CuteCharacterCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                Modifier.size(56.dp).clip(CircleShape).background(avatarColor),
+                Modifier.size(72.dp).clip(CircleShape).background(avatarColor),
                 contentAlignment = Alignment.Center
             ) {
-                Text(initial, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
+                Text(initial, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 character.name.ifEmpty { "未命名角色" },
                 fontWeight = FontWeight.Bold, fontSize = 14.sp,
@@ -308,7 +377,7 @@ fun CuteCharacterCard(
                     Icon(Icons.Default.Create, contentDescription = "编辑", tint = TextGray, modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = Color(0xFFFF9EB5), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = CoralAccent, modifier = Modifier.size(16.dp))
                 }
             }
         }

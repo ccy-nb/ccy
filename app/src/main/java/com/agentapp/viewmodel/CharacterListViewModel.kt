@@ -100,6 +100,26 @@ class CharacterListViewModel(application: Application) : AndroidViewModel(applic
         return true
     }
 
+    fun createNewSession(characterId: String, onSessionCreated: (String, String) -> Unit) {
+        viewModelScope.launch {
+            val char = characterRepo.get(characterId) ?: return@launch
+            val ns = chatRepo.create(char.id)
+            if (char.greeting.isNotBlank()) {
+                chatRepo.addMessage(
+                    ns.id,
+                    com.agentapp.data.model.Message(
+                        role = com.agentapp.data.model.Role.ASSISTANT,
+                        content = char.greeting
+                    )
+                )
+            }
+            val session = chatRepo.get(ns.id) ?: ns
+            withContext(Dispatchers.Main) {
+                onSessionCreated(session.id, char.name)
+            }
+        }
+    }
+
     fun startChatWith(characterId: String, onSessionCreated: (String, String) -> Unit) {
         viewModelScope.launch {
             val char = characterRepo.get(characterId) ?: return@launch

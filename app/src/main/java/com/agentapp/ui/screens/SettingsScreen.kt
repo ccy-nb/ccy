@@ -1,106 +1,241 @@
-@file:Suppress("DEPRECATION")
-
 package com.agentapp.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.agentapp.data.model.ApiConfig
-import com.agentapp.data.model.ApiProvider
-import com.agentapp.data.model.Persona
-import com.agentapp.data.model.Preset
-import com.agentapp.ui.theme.Pink
-import com.agentapp.ui.theme.PinkDark
-import com.agentapp.ui.theme.PinkLight
 import com.agentapp.ui.theme.TextGray
 import com.agentapp.viewmodel.SettingsViewModel
-import kotlinx.coroutines.launch
+import com.agentapp.ui.screens.PresetEditDialog
+import com.agentapp.viewmodel.WorldBookViewModel
 
 private val CardShape = RoundedCornerShape(20.dp)
-private val FieldShape = RoundedCornerShape(16.dp)
+
+data class SettingsItem(
+    val icon: ImageVector,
+    val label: String,
+    val desc: String
+)
+
+private val settingsItems = listOf(
+    SettingsItem(Icons.Default.Wifi, "API 连接", "配置模型提供商、API Key、模型参数"),
+    SettingsItem(Icons.Default.Person, "我的身份", "设置角色名、描述信息"),
+    SettingsItem(Icons.Default.Tune, "预设", "管理采样参数预设"),
+    SettingsItem(Icons.Default.Palette, "主题", "切换浅色/深色/跟随系统"),
+    SettingsItem(Icons.Default.Book, "世界书", "管理世界观设定"),
+    SettingsItem(Icons.Default.Face, "角色管理", "新建/编辑/删除角色"),
+    SettingsItem(Icons.Default.Code, "正则脚本", "管理 AI 回复替换规则"),
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     settingsViewModel: SettingsViewModel,
-    onNavigateToWorldBook: () -> Unit
+    characterListViewModel: com.agentapp.viewmodel.CharacterListViewModel? = null,
+    onNavigateToWorldBook: () -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
+    var currentPage by remember { mutableStateOf("menu") }
+
+    val pageKeys = listOf("api", "persona", "presets", "theme", "worldbook", "characters", "regex")
+
+    when (currentPage) {
+        "menu" -> SettingsMenu(
+            onBack = onBack,
+            onNavigate = { currentPage = it }
+        )
+        "api" -> ApiSettingsPage(
+            settingsViewModel = settingsViewModel,
+            onBack = { currentPage = "menu" }
+        )
+        "persona" -> PersonaSettingsPage(
+            settingsViewModel = settingsViewModel,
+            onBack = { currentPage = "menu" }
+        )
+        "presets" -> PresetSettingsPage(
+            settingsViewModel = settingsViewModel,
+            onBack = { currentPage = "menu" }
+        )
+        "theme" -> ThemeSettingsPage(
+            settingsViewModel = settingsViewModel,
+            onBack = { currentPage = "menu" }
+        )
+        "worldbook" -> {
+            onNavigateToWorldBook()
+        }
+        "characters" -> {
+            if (characterListViewModel != null) {
+                CharactersSettingsPage(
+                    characterListViewModel = characterListViewModel,
+                    onBack = { currentPage = "menu" }
+                )
+            } else {
+                currentPage = "menu"
+            }
+        }
+        "regex" -> RegexSettingsPage(onBack = { currentPage = "menu" })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsMenu(onBack: () -> Unit, onNavigate: (String) -> Unit) {
+    val pageKeys = listOf("api", "persona", "presets", "theme", "worldbook", "characters", "regex")
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("设置", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())
+        ) {
+            Spacer(Modifier.height(8.dp))
+            settingsItems.forEachIndexed { index, item ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onNavigate(pageKeys[index]) },
+                    shape = CardShape,
+                    elevation = CardDefaults.cardElevation(1.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(
+                        Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(item.icon, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.label, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                            Text(item.desc, fontSize = 12.sp, color = TextGray)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextGray, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+// ========= 各设置子页面占位 =========
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ApiSettingsPage(settingsViewModel: SettingsViewModel, onBack: () -> Unit) {
     val config by settingsViewModel.config.collectAsState()
-    val selectedTheme by settingsViewModel.selectedTheme.collectAsState()
+    var providerExpanded by remember { mutableStateOf(false) }
+    var modelExpanded by remember { mutableStateOf(false) }
+    var showKey by remember { mutableStateOf(false) }
     val testing by settingsViewModel.testing.collectAsState()
     val testResult by settingsViewModel.testResult.collectAsState()
     val testSuccess by settingsViewModel.testSuccess.collectAsState()
     val availableModels by settingsViewModel.availableModels.collectAsState()
-    val persona by settingsViewModel.persona.collectAsState()
-    val presets by settingsViewModel.presets.collectAsState()
-    var providerExpanded by remember { mutableStateOf(false) }
-    var modelExpanded by remember { mutableStateOf(false) }
-    var showKey by remember { mutableStateOf(false) }
-    var presetEditDialog by remember { mutableStateOf<Preset?>(null) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = Pink,
-        unfocusedBorderColor = Color(0xFFE8DDE8),
-        cursorColor = Pink
-    )
 
-    // 预设编辑弹窗
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("API 连接", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+            Spacer(Modifier.height(8.dp))
+            SettingsApiContent(
+                config = config,
+                testing = testing,
+                testResult = testResult,
+                testSuccess = testSuccess,
+                availableModels = availableModels,
+                providerExpanded = providerExpanded,
+                modelExpanded = modelExpanded,
+                showKey = showKey,
+                onProviderExpandedChange = { providerExpanded = it },
+                onModelExpandedChange = { modelExpanded = it },
+                onShowKeyChange = { showKey = it },
+                onUpdateConfig = { settingsViewModel.updateConfig(it) },
+                onTestConnection = { settingsViewModel.testConnection() }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PersonaSettingsPage(settingsViewModel: SettingsViewModel, onBack: () -> Unit) {
+    val persona by settingsViewModel.persona.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("我的身份", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+            Spacer(Modifier.height(8.dp))
+            SettingsPersonaContent(persona = persona, onSave = { settingsViewModel.updatePersona { it }; settingsViewModel.save() })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PresetSettingsPage(settingsViewModel: SettingsViewModel, onBack: () -> Unit) {
+    val presets by settingsViewModel.presets.collectAsState()
+    var presetEditDialog by remember { mutableStateOf<com.agentapp.data.model.Preset?>(null) }
+
     if (presetEditDialog != null) {
-        PresetEditDialog(
+        com.agentapp.ui.screens.PresetEditDialog(
             preset = presetEditDialog!!,
             onSave = { settingsViewModel.savePreset(it); presetEditDialog = null },
             onDismiss = { presetEditDialog = null }
@@ -108,467 +243,298 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("⚙️ 设置", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                title = { Text("预设", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { presetEditDialog = com.agentapp.data.model.Preset() }) {
+                        Icon(Icons.Default.Add, contentDescription = "新建", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(Modifier.height(12.dp))
-
-            CollapsibleSection("🔌 API 连接") {
-            Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                Column(Modifier.padding(16.dp)) {
-                    // Provider
-                    ExposedDropdownMenuBox(expanded = providerExpanded, onExpandedChange = { providerExpanded = it }) {
-                        val providerLabel = when (config.provider) {
-                            ApiProvider.DEEPSEEK -> "DeepSeek"
-                            ApiProvider.OPENAI -> "OpenAI"
-                            ApiProvider.CLAUDE -> "Claude (Anthropic)"
-                            ApiProvider.NVIDIA -> "NVIDIA 英伟达"
-                            ApiProvider.GOOGLE -> "Google Gemini"
-                            ApiProvider.GROQ -> "Groq"
-                            ApiProvider.CUSTOM -> "自定义"
-                        }
-                        OutlinedTextField(
-                            value = providerLabel, onValueChange = {}, readOnly = true,
-                            label = { Text("提供商") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(
-                                type = androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, enabled = true
-                            ),
-                            shape = FieldShape, colors = fieldColors
-                        )
-                        ExposedDropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }) {
-                            listOf(
-                                Triple("DeepSeek", ApiProvider.DEEPSEEK, "deepseek-chat" to "https://api.deepseek.com/v1"),
-                                Triple("OpenAI", ApiProvider.OPENAI, "gpt-4" to "https://api.openai.com/v1"),
-                                Triple("Claude (Anthropic)", ApiProvider.CLAUDE, "claude-3-haiku-20240307" to "https://api.anthropic.com/v1"),
-                                Triple("NVIDIA 英伟达", ApiProvider.NVIDIA, "meta/llama-3.1-70b-instruct" to "https://integrate.api.nvidia.com/v1"),
-                                Triple("Google Gemini", ApiProvider.GOOGLE, "gemini-2.0-flash" to "https://generativelanguage.googleapis.com/v1beta/openai"),
-                                Triple("Groq", ApiProvider.GROQ, "llama-3.3-70b-versatile" to "https://api.groq.com/openai/v1"),
-                                Triple("自定义 (OpenAI 兼容)", ApiProvider.CUSTOM, "" to "")
-                            ).forEach { (label, provider, defaults) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    settingsViewModel.updateConfig {
-                                        it.copy(provider = provider, name = if (provider == ApiProvider.CUSTOM) "自定义" else label,
-                                            baseUrl = if (defaults.first.isNotEmpty()) defaults.second else it.baseUrl,
-                                            model = if (defaults.first.isNotEmpty()) defaults.first else it.model)
-                                    }
-                                    providerExpanded = false
-                                })
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-
-                    // URL + Key 紧凑行
-                    OutlinedTextField(
-                        value = config.baseUrl, onValueChange = { v -> settingsViewModel.updateConfig { it.copy(baseUrl = v) } },
-                        label = { Text("API 地址") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = config.apiKey, onValueChange = { v -> settingsViewModel.updateConfig { it.copy(apiKey = v) } },
-                        label = { Text("API Key") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors,
-                        visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            TextButton(onClick = { showKey = !showKey }) {
-                                Text(if (showKey) "隐藏" else "显示", color = Pink, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                            }
-                        }
-                    )
-                    Spacer(Modifier.height(8.dp))
-
-                    // 模型选择
-                    if (testSuccess && availableModels.isNotEmpty()) {
-                        ExposedDropdownMenuBox(expanded = modelExpanded, onExpandedChange = { modelExpanded = it }) {
-                            OutlinedTextField(
-                                value = config.model, onValueChange = {}, readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(
-                                    type = androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, enabled = true
-                                ),
-                                shape = FieldShape, colors = fieldColors, label = { Text("模型") }
-                            )
-                            ExposedDropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
-                                availableModels.forEach { model ->
-                                    DropdownMenuItem(text = { Text(model) }, onClick = {
-                                        settingsViewModel.updateConfig { it.copy(model = model) }
-                                        modelExpanded = false
-                                    })
-                                }
-                            }
-                        }
-                    } else {
-                        OutlinedTextField(
-                            value = config.model, onValueChange = { v -> settingsViewModel.updateConfig { it.copy(model = v) } },
-                            label = { Text("模型") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-
-                    // Temperature + MaxTokens 紧凑行
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = config.temperature.toString(),
-                            onValueChange = { v -> v.toFloatOrNull()?.let { f -> settingsViewModel.updateConfig { cfg -> cfg.copy(temperature = f.coerceIn(0f, 2f)) } } },
-                            label = { Text("Temperature") }, singleLine = true,
-                            modifier = Modifier.weight(1f), shape = FieldShape, colors = fieldColors
-                        )
-                        OutlinedTextField(
-                            value = if (config.maxTokens == 0) "" else config.maxTokens.toString(),
-                            onValueChange = { v -> settingsViewModel.updateConfig { it.copy(maxTokens = if (v.isBlank()) 0 else (v.toIntOrNull() ?: it.maxTokens)) } },
-                            label = { Text("最大 Token") }, singleLine = true,
-                            modifier = Modifier.weight(1f), shape = FieldShape, colors = fieldColors
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-
-                    // 测试连接
-                    Button(
-                        onClick = { settingsViewModel.testConnection() }, enabled = !testing,
-                        modifier = Modifier.fillMaxWidth().height(44.dp), shape = FieldShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (testSuccess) Color(0xFF4CAF50) else PinkDark,
-                            disabledContainerColor = Color(0xFFE0E0E0)
-                        )
-                    ) {
-                        if (testing) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(if (testing) "测试中..." else if (testSuccess) "✅ 已连接" else "🔌 测试连接",
-                            fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                    if (testResult != null && !testSuccess) {
-                        Text(testResult!!, modifier = Modifier.padding(top = 8.dp),
-                            style = MaterialTheme.typography.bodySmall, color = Color(0xFFE86A8A))
-                    }
-                }
-            }
-
-            }
-
-            CollapsibleSection("👤 我的身份") {
-            Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("设定你在 AI 眼中的形象，会注入到每次对话中", style = MaterialTheme.typography.bodySmall, color = TextGray)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = persona.name, onValueChange = { v -> settingsViewModel.updatePersona { p -> p.copy(name = v) } },
-                        label = { Text("你的名字") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = persona.description, onValueChange = { v -> settingsViewModel.updatePersona { p -> p.copy(description = v) } },
-                        label = { Text("你的描述（外貌、性格等）") }, minLines = 2, maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = persona.personality, onValueChange = { v -> settingsViewModel.updatePersona { p -> p.copy(personality = v) } },
-                        label = { Text("你的性格") }, minLines = 2, maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(), shape = FieldShape, colors = fieldColors
-                    )
-                }
-            }
-
-            }
-
-            CollapsibleSection(
-                title = "📋 推理预设",
-                actions = {
-                    TextButton(onClick = { presetEditDialog = Preset() }) {
-                        Text("＋ 新建", color = Pink, fontWeight = FontWeight.Bold)
-                    }
-                    TextButton(onClick = { settingsViewModel.exportPresets(presets, context) }) {
-                        Text("📤", fontSize = 14.sp)
-                    }
-                    TextButton(onClick = { settingsViewModel.importPreset(context) }) {
-                        Text("📥", fontSize = 14.sp)
-                    }
-                }
-            ) {
-                TextButton(onClick = { presetEditDialog = Preset() }) {
-                    Text("＋ 新建", color = Pink, fontWeight = FontWeight.Bold)
-                }
-                TextButton(onClick = {
-                    settingsViewModel.exportPresets(presets, context)
-                }) {
-                    Text("📤", fontSize = 14.sp)
-                }
-                TextButton(onClick = {
-                    settingsViewModel.importPreset(context)
-                }) {
-                    Text("📥", fontSize = 14.sp)
-                }
-            }
-            if (presets.isEmpty()) {
-                Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                    Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("📋", fontSize = 32.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text("暂无预设", style = MaterialTheme.typography.bodySmall, color = TextGray)
-                        Text("预设可以保存不同的 Temperature、模型等参数组合", fontSize = 12.sp, color = TextGray)
-                    }
-                }
-            } else {
-                presets.forEach { preset ->
-                    Card(
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(1.dp),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                    ) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(preset.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                if (preset.model.isNotBlank()) {
-                                    Text("模型: ${preset.model}", fontSize = 12.sp, color = TextGray)
-                                }
-                                Text("T:${preset.temperature}  Tok:${preset.maxTokens}  Ctx:${preset.maxContext}  TopP:${preset.topP}",
-                                    fontSize = 11.sp, color = TextGray)
-                            }
-                            IconButton(onClick = { presetEditDialog = preset }) {
-                                Text("✏️", fontSize = 14.sp)
-                            }
-                            IconButton(onClick = { settingsViewModel.deletePreset(preset.id) }) {
-                                Text("🗑️", fontSize = 14.sp)
-                            }
-                        }
-                    }
-                }
-            }
-
-            CollapsibleSection("🎨 主题") {
-            Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    listOf("system" to "跟随系统", "light" to "可爱粉", "dark" to "暗色").forEach { (mode, label) ->
-                        androidx.compose.material3.FilterChip(
-                            selected = selectedTheme == mode,
-                            onClick = { settingsViewModel.setSelectedTheme(mode) },
-                            label = { Text(label, fontSize = 13.sp) },
-                            modifier = Modifier.padding(end = 8.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = PinkLight, selectedLabelColor = PinkDark
-                            )
-                        )
-                    }
-                }
-            }
-
-            }
-
-            CollapsibleSection("📖 世界书") {
-            Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                Column(Modifier.padding(16.dp).fillMaxWidth()) {
-                    Text("从 SillyTavern 格式的 lorebook JSON 导入", fontSize = 12.sp, color = TextGray)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = {
-                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                            val clip = clipboard?.primaryClip
-                            val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0)?.text?.toString() else null
-                            if (text != null && text.isNotBlank()) {
-                                settingsViewModel.importWorldBookFromJson(text, context)
-                            } else {
-                                scope.launch { snackbarHostState.showSnackbar("剪贴板为空，请先复制 JSON") }
-                            }
-                        }) {
-                            Text("📥 从剪贴板导入", color = Pink, fontSize = 13.sp)
-                        }
-                        TextButton(onClick = onNavigateToWorldBook) {
-                            Text("📂 管理世界书", color = Pink, fontSize = 13.sp)
-                        }
-                    }
-                }
-            }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // ===== 保存 =====
-            Button(
-                onClick = {
-                    settingsViewModel.save()
-                    scope.launch { snackbarHostState.showSnackbar("配置已保存 ✓") }
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = FieldShape,
-                colors = ButtonDefaults.buttonColors(containerColor = PinkDark)
-            ) { Text("💾 保存配置", fontWeight = FontWeight.Bold, color = Color.White) }
-
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(8.dp))
-            Text("🔒 所有数据仅保存在本地", style = MaterialTheme.typography.bodySmall, color = TextGray,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            SettingsPresetContent(presets = presets, onEdit = { presetEditDialog = it }, onDelete = { settingsViewModel.deletePreset(it) })
         }
     }
 }
-
-@Composable
-private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text, fontWeight = FontWeight.Bold, color = PinkDark, fontSize = 14.sp,
-        modifier = modifier.padding(bottom = 6.dp, start = 4.dp)
-    )
-}
-
-/** 可折叠设置分区 — 点标题展开/收起 */
-@Composable
-private fun CollapsibleSection(
-    title: String,
-    initialExpanded: Boolean = true,
-    actions: @Composable (() -> Unit)? = null,
-    content: @Composable () -> Unit
-) {
-    var expanded by remember { mutableStateOf(initialExpanded) }
-
-    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(vertical = 6.dp, horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                if (expanded) "▼" else "▶",
-                fontSize = 10.sp,
-                color = PinkDark,
-                modifier = Modifier.padding(end = 6.dp)
-            )
-            SectionTitle(title, modifier = Modifier.weight(1f))
-            if (actions != null) actions()
-        }
-        AnimatedVisibility(visible = expanded) {
-            content()
-        }
-    }
-}
-
-// === 预设编辑弹窗 ===
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PresetEditDialog(
-    preset: Preset,
-    onSave: (Preset) -> Unit,
-    onDismiss: () -> Unit
+private fun CharactersSettingsPage(
+    characterListViewModel: com.agentapp.viewmodel.CharacterListViewModel,
+    onBack: () -> Unit
 ) {
-    var name by remember { mutableStateOf(preset.name) }
-    var temperature by remember { mutableStateOf(preset.temperature.toString()) }
-    var maxTokens by remember { mutableStateOf(preset.maxTokens.toString()) }
-    var maxContext by remember { mutableStateOf(preset.maxContext.toString()) }
-    var topP by remember { mutableStateOf(preset.topP.toString()) }
-    var topK by remember { mutableStateOf(if (preset.topK == 0) "" else preset.topK.toString()) }
-    var frequencyPenalty by remember { mutableStateOf(preset.frequencyPenalty.toString()) }
-    var presencePenalty by remember { mutableStateOf(preset.presencePenalty.toString()) }
-    var minP by remember { mutableStateOf(preset.minP.toString()) }
-    var model by remember { mutableStateOf(preset.model) }
-    var systemPrompt by remember { mutableStateOf(preset.systemPrompt) }
-    val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Pink, unfocusedBorderColor = Color(0xFFE8DDE8), cursorColor = Pink)
+    val characters by characterListViewModel.characters.collectAsState()
+    var showEdit by remember { mutableStateOf(false) }
+    var editingCharacter by remember { mutableStateOf<com.agentapp.data.model.Character?>(null) }
+    val exportCtx = androidx.compose.ui.platform.LocalContext.current
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (preset.id.isEmpty()) "新建预设 📋" else "编辑预设 ✏️", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("预设名称") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                Spacer(Modifier.height(6.dp))
-                OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("模型（留空=全局）") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                Spacer(Modifier.height(6.dp))
+    if (showEdit) {
+        com.agentapp.ui.screens.CharacterEditScreen(
+            character = editingCharacter ?: com.agentapp.data.model.Character(),
+            onSave = { characterListViewModel.saveCharacter(it); showEdit = false; editingCharacter = null },
+            onCancel = { showEdit = false; editingCharacter = null }
+        )
+        return
+    }
 
-                // 第 1 行：Temperature + MaxTokens + MaxContext
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(value = temperature, onValueChange = { temperature = it },
-                        label = { Text("Temp") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                    OutlinedTextField(value = maxTokens, onValueChange = { maxTokens = it },
-                        label = { Text("MaxTok") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                    OutlinedTextField(value = maxContext, onValueChange = { maxContext = it },
-                        label = { Text("Ctx") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("角色管理", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { editingCharacter = null; showEdit = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "新建角色")
+                    }
                 }
-                Spacer(Modifier.height(6.dp))
-
-                // 第 2 行：TopP + TopK + MinP
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(value = topP, onValueChange = { topP = it },
-                        label = { Text("TopP") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                    OutlinedTextField(value = topK, onValueChange = { topK = it },
-                        label = { Text("TopK") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                    OutlinedTextField(value = minP, onValueChange = { minP = it },
-                        label = { Text("MinP") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        if (characters.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("暂无角色", fontSize = 16.sp, color = TextGray)
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { editingCharacter = null; showEdit = true }) {
+                        Text("＋ 新建角色", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
-                Spacer(Modifier.height(6.dp))
-
-                // 第 3 行：FreqPenalty + PresencePenalty
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(value = frequencyPenalty, onValueChange = { frequencyPenalty = it },
-                        label = { Text("FreqPen") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                    OutlinedTextField(value = presencePenalty, onValueChange = { presencePenalty = it },
-                        label = { Text("PresPen") }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = fieldColors)
-                }
-                Spacer(Modifier.height(6.dp))
-
-                OutlinedTextField(value = systemPrompt, onValueChange = { systemPrompt = it },
-                    label = { Text("System Prompt（可选）") }, minLines = 2, maxLines = 3,
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors)
             }
+        } else {
+            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+                items(characters, key = { it.id }) { char ->
+                    val initial = char.name.firstOrNull()?.toString() ?: "?"
+                    val colorIdx = kotlin.math.abs(char.name.hashCode()) % com.agentapp.ui.theme.AvatarColors.size
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = CardDefaults.cardElevation(1.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(com.agentapp.ui.theme.AvatarColors[colorIdx], androidx.compose.foundation.shape.CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Text(initial, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(char.name.ifEmpty { "未命名" }, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                if (char.description.isNotBlank()) {
+                                    Text(char.description.take(50), fontSize = 12.sp, color = TextGray, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                            }
+                            TextButton(onClick = { editingCharacter = char; showEdit = true }) {
+                                Text("编辑", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                            }
+                            TextButton(onClick = {
+                                val repo = com.agentapp.data.repository.CharacterRepository(exportCtx.applicationContext)
+                                repo.shareCharacter(exportCtx, char)
+                            }) {
+                                Text("导出", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                            }
+                            TextButton(onClick = { characterListViewModel.deleteCharacter(char.id) }) {
+                                Text("删除", fontSize = 13.sp, color = com.agentapp.ui.theme.PinkDark)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSettingsPage(settingsViewModel: SettingsViewModel, onBack: () -> Unit) {
+    val selectedTheme by settingsViewModel.selectedTheme.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("主题", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
         },
-        confirmButton = {
-            TextButton(onClick = {
-                val temp = temperature.toFloatOrNull()?.coerceIn(0f, 2f) ?: 0.7f
-                val tokens = maxTokens.toIntOrNull() ?: 300
-                val ctx = maxContext.toIntOrNull() ?: 4096
-                val tp = topP.toFloatOrNull()?.coerceIn(0f, 1f) ?: 1.0f
-                val tk = topK.toIntOrNull()?.coerceIn(0, 1000) ?: 0
-                val fp = frequencyPenalty.toFloatOrNull()?.coerceIn(-2f, 2f) ?: 0f
-                val pp = presencePenalty.toFloatOrNull()?.coerceIn(-2f, 2f) ?: 0f
-                val mp = minP.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f
-                onSave(preset.copy(
-                    name = name,
-                    temperature = temp,
-                    maxTokens = tokens,
-                    maxContext = ctx,
-                    topP = tp,
-                    topK = tk,
-                    frequencyPenalty = fp,
-                    presencePenalty = pp,
-                    minP = mp,
-                    model = model,
-                    systemPrompt = systemPrompt
-                ))
-            }) { Text("保存", fontWeight = FontWeight.Bold, color = PinkDark) }
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(8.dp))
+            SettingsThemeContent(selectedTheme = selectedTheme, onSelect = { settingsViewModel.setSelectedTheme(it); settingsViewModel.save() })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegexSettingsPage(onBack: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val repo = remember { com.agentapp.data.repository.RegexRepository(ctx.applicationContext) }
+    var scripts by remember { mutableStateOf<List<com.agentapp.data.model.RegexScript>>(emptyList()) }
+    var editingScript by remember { mutableStateOf<com.agentapp.data.model.RegexScript?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // 导出正则脚本
+    fun exportRegexScripts() {
+        val json = kotlinx.serialization.json.Json { prettyPrint = true }
+        val serializer = kotlinx.serialization.builtins.ListSerializer(com.agentapp.data.model.RegexScript.serializer())
+        val jsonStr = json.encodeToString(serializer, scripts)
+        try {
+            val file = java.io.File(ctx.cacheDir, "regex_scripts_${System.currentTimeMillis()}.json")
+            file.writeText(jsonStr)
+            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            ctx.startActivity(android.content.Intent.createChooser(intent, "导出正则脚本"))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(ctx, "导出失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 导入正则脚本（从 JSON 文本解析）
+    fun importRegexScriptsFromJson(text: String) {
+        scope.launch {
+            try {
+                val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                val imported = json.decodeFromString<List<com.agentapp.data.model.RegexScript>>(text)
+                imported.forEach { repo.saveOne(it) { it.id } }
+                scripts = repo.list()
+                android.widget.Toast.makeText(ctx, "✅ 导入 ${imported.size} 条正则脚本", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                // 尝试单个
+                try {
+                    val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                    val single = json.decodeFromString<com.agentapp.data.model.RegexScript>(text)
+                    repo.saveOne(single) { it.id }
+                    scripts = repo.list()
+                    android.widget.Toast.makeText(ctx, "✅ 导入 1 条正则脚本", android.widget.Toast.LENGTH_SHORT).show()
+                } catch (e2: Exception) {
+                    android.widget.Toast.makeText(ctx, "❌ 导入失败: ${e2.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // 文件选择器：导入正则脚本 JSON
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val inputStream = ctx.contentResolver.openInputStream(uri)
+                    val text = inputStream?.bufferedReader()?.readText() ?: ""
+                    inputStream?.close()
+                    if (text.isNotBlank()) {
+                        importRegexScriptsFromJson(text)
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(ctx, "❌ 读取文件失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    if (editingScript != null) {
+        val s = editingScript!!
+        var name by remember(s) { mutableStateOf(s.name) }
+        var findRegex by remember(s) { mutableStateOf(s.findRegex) }
+        var replaceString by remember(s) { mutableStateOf(s.replaceString) }
+        AlertDialog(
+            onDismissRequest = { editingScript = null },
+            title = { Text(if (s.id.isEmpty()) "新建正则" else "编辑正则") },
+            text = {
+                Column {
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("名称") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(value = findRegex, onValueChange = { findRegex = it }, label = { Text("查找 (正则)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(value = replaceString, onValueChange = { replaceString = it }, label = { Text("替换为") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val updated = s.copy(name = name, findRegex = findRegex, replaceString = replaceString)
+                    scope.launch { repo.saveOne(updated) { it.id }; scripts = repo.list() }
+                    editingScript = null
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { editingScript = null }) { Text("取消") } }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("正则脚本", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                },
+                actions = {
+                    if (scripts.isNotEmpty()) {
+                        IconButton(onClick = { exportRegexScripts() }) {
+                            Text("📤", fontSize = 16.sp)
+                        }
+                    }
+                    IconButton(onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }) {
+                        Text("📥", fontSize = 16.sp)
+                    }
+                    IconButton(onClick = { editingScript = com.agentapp.data.model.RegexScript() }) {
+                        Icon(Icons.Default.Add, contentDescription = "新建")
+                    }
+                }
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = CardShape
-    )
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        if (scripts.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("暂无正则脚本", color = TextGray)
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+                items(scripts, key = { it.id }) { script ->
+                    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(script.name.ifEmpty { "未命名" }, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                Text(script.findRegex.take(40), fontSize = 11.sp, color = TextGray, maxLines = 1)
+                            }
+                            TextButton(onClick = { editingScript = script }) { Text("编辑", fontSize = 13.sp) }
+                            TextButton(onClick = {
+                                scope.launch {
+                                    repo.delete(script.id) { it.id }
+                                    scripts = repo.list()
+                                }
+                            }) { Text("删除", fontSize = 13.sp, color = com.agentapp.ui.theme.PinkDark) }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

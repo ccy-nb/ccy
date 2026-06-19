@@ -112,20 +112,4 @@ class VariableRepository(private val context: Context) {
         setNested(map, parentParts, JsonObject(inner))
     }
 
-    /** 扁平化变量树为 路径→值 映射 */
-    fun flattenVariables(vars: JsonObject, prefix: String = ""): Map<String, String> {
-        val result = LinkedHashMap<String, String>()
-        for ((key, value) in vars) {
-            val path = if (prefix.isEmpty()) key else "$prefix/$key"
-            when (value) {
-                is JsonPrimitive -> {
-                    val v = value.content
-                    if (v.isNotEmpty()) result[path] = v
-                }
-                is JsonObject -> result.putAll(flattenVariables(value, path))
-                else -> {}
-            }
-        }
-        return result
-    }
 }

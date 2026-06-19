@@ -72,12 +72,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         viewModelScope.launch {
-            personaRepo.getFlow().collect { persona ->
+            personaRepo.flow().collect { persona ->
                 _persona.value = persona
             }
         }
         viewModelScope.launch {
-            presetRepo.listFlow().collect { presets ->
+            presetRepo.flow().collect { presets ->
                 _presets.value = presets
             }
         }

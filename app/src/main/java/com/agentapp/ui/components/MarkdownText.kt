@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // 代码块背景色
-private val CodeBg = Color(0xFFF0EDF5)
-private val QuoteBar = Color(0xFFB5A8D5)
-private val CodeTextColor = Color(0xFF4A3F5C)
+private val CodeBg = Color(0xFFF0EBE4)
+private val QuoteBar = Color(0xFFD4A04A)
+private val CodeTextColor = Color(0xFF4A3A2E)
 
 @Composable
 fun MarkdownText(text: String, modifier: Modifier = Modifier) {
@@ -125,7 +125,7 @@ private fun CodeBlock(code: String, lang: String) {
             .padding(12.dp)
     ) {
         if (lang.isNotEmpty()) {
-            Text(lang, fontSize = 11.sp, color = Color(0xFF9E8E9E), fontWeight = FontWeight.Medium)
+            Text(lang, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(4.dp))
         }
         val scrollState = rememberScrollState()
@@ -216,7 +216,7 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                 text.startsWith("`", i) && !text.startsWith("```", i) -> {
                     val end = text.indexOf("`", i + 1)
                     if (end != -1) {
-                        withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = Color(0xFFD63384))) {
+                        withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = com.agentapp.ui.theme.CoralAccent)) {
                             append(text.substring(i + 1, end))
                         }
                         i = end + 1

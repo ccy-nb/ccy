@@ -10,49 +10,47 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 
 class ApiFactory {
     companion object {
-        /** 连接测试用短超时 client */
         val testClient get() = HttpClientProvider.testClient
-
-        /** API 调用用长超时 client（支持流式） */
         val apiClient get() = HttpClientProvider.client
     }
 
-    private val client get() = testClient
-
-    private val json = Json { ignoreUnknownKeys = true }
-
-    private fun isOpenAiCompatible(provider: ApiProvider) = when (provider) {
-        ApiProvider.DEEPSEEK, ApiProvider.OPENAI, ApiProvider.NVIDIA, ApiProvider.GOOGLE, ApiProvider.GROQ, ApiProvider.CUSTOM -> true
-        ApiProvider.CLAUDE -> false
+    private fun strategyFor(config: ApiConfig): ApiStrategy = when (config.provider) {
+        ApiProvider.CLAUDE -> ClaudeStrategy()
+        else -> OpenAiStrategy()
     }
 
     fun chatStream(config: ApiConfig, messages: List<Message>): Flow<String> {
-        return if (isOpenAiCompatible(config.provider)) OpenAiClient(config).chatStream(messages)
-        else ClaudeClient(config).chatStream(messages)
+        val strategy = strategyFor(config)
+        return SseClient.stream(
+            requestProducer = { strategy.buildStreamRequest(config, messages) },
+            onEvent = strategy::parseStreamEvent
+        )
     }
 
     suspend fun chatSync(config: ApiConfig, messages: List<Message>): String {
-        return if (isOpenAiCompatible(config.provider)) OpenAiClient(config).chatSync(messages)
-        else ClaudeClient(config).chatSync(messages)
+        val strategy = strategyFor(config)
+        val request = strategy.buildSyncRequest(config, messages)
+        return try {
+            val response = testClient.newCall(request).execute()
+            val body = response.body?.string() ?: "{}"
+            response.close()
+            strategy.parseSyncResponse(body)
+        } catch (e: Exception) {
+            "网络错误: ${e.message}"
+        }
     }
 
-    /** 测试 API 连接：先发最小 chat 请求验证 key，成功后拉模型列表 */
+    /** 测试 API 连接 */
     suspend fun testConnection(config: ApiConfig): ConnectionResult {
         return try {
-            // 第 1 步：发送最小 chat completion 验证 API Key
-            val chatResult = verifyApiKey(config)
-            if (chatResult !is ConnectionResult.Success) return chatResult
+            val strategy = strategyFor(config)
+            val verifyResult = verifyApiKey(config, strategy)
+            if (verifyResult !is ConnectionResult.Success) return verifyResult
 
-            // 第 2 步：调 /models 获取模型列表
-            val models = fetchModelList(config)
+            val models = fetchModelList(config, strategy)
             ConnectionResult.Success(models)
         } catch (e: java.net.UnknownHostException) {
             ConnectionResult.Fail("无法解析域名，请检查网络")
@@ -63,34 +61,11 @@ class ApiFactory {
         }
     }
 
-    /** 发送一个 max_tokens=1 的 chat 请求验证 API Key 是否有效 */
-    private suspend fun verifyApiKey(config: ApiConfig): ConnectionResult {
+    private suspend fun verifyApiKey(config: ApiConfig, strategy: ApiStrategy): ConnectionResult {
         if (config.apiKey.isBlank()) return ConnectionResult.Fail("API Key 为空")
         return try {
-            val bodyJson = if (isOpenAiCompatible(config.provider)) {
-                """{"model":"${config.model}","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}"""
-            } else {
-                """{"model":"${config.model}","max_tokens":1,"messages":[{"role":"user","content":"hi"}],"stream":false}"""
-            }
-
-            val url = if (isOpenAiCompatible(config.provider)) {
-                "${config.baseUrl.trimEnd('/')}/chat/completions"
-            } else {
-                "${config.baseUrl.trimEnd('/')}/messages"
-            }
-
-            val request = Request.Builder().url(url).apply {
-                addHeader("Content-Type", "application/json")
-                if (isOpenAiCompatible(config.provider)) {
-                    addHeader("Authorization", "Bearer ${config.apiKey}")
-                } else {
-                    addHeader("x-api-key", config.apiKey)
-                    addHeader("anthropic-version", "2023-06-01")
-                }
-                post(bodyJson.toRequestBody("application/json".toMediaType()))
-            }.build()
-
-            val response = client.newCall(request).execute()
+            val request = strategy.buildTestRequest(config)
+            val response = testClient.newCall(request).execute()
             val body = response.body?.string() ?: ""
 
             when {
@@ -100,45 +75,27 @@ class ApiFactory {
                 response.code == 404 ->
                     ConnectionResult.Fail("地址不正确，请检查 API 地址")
                 else -> {
-                    val errMsg = try {
-                        json.parseToJsonElement(body).jsonObject["error"]?.jsonObject?.let { errorObj ->
-                            errorObj["message"]?.jsonPrimitive?.content ?: ""
-                        } ?: ""
-                    } catch (_: Exception) { "" }
-                    ConnectionResult.Fail(if (errMsg.isNotBlank()) errMsg else "HTTP ${response.code}")
+                    val errMsg = strategy.parseErrorBody(body, response.code)
+                    ConnectionResult.Fail(errMsg)
                 }
             }
-        } catch (e: Exception) {
-            // 让外层统一处理网络异常
-            throw e
-        }
+        } catch (e: Exception) { throw e }
     }
 
-    /** 拉取模型列表 */
-    private suspend fun fetchModelList(config: ApiConfig): List<String> {
+    private suspend fun fetchModelList(config: ApiConfig, strategy: ApiStrategy): List<String> {
         return try {
-            val url = "${config.baseUrl.trimEnd('/')}/models"
-            val request = Request.Builder().url(url).apply {
-                if (isOpenAiCompatible(config.provider)) addHeader("Authorization", "Bearer ${config.apiKey}")
-                else {
-                    addHeader("x-api-key", config.apiKey)
-                    addHeader("anthropic-version", "2023-06-01")
-                }
-            }.build()
-
-            val response = client.newCall(request).execute()
+            val request = strategy.buildModelsRequest(config)
+            val response = testClient.newCall(request).execute()
             val body = response.body?.string() ?: ""
 
-            if (response.isSuccessful && response.code == 200) {
+            if (response.isSuccessful) {
+                val json = Json { ignoreUnknownKeys = true }
                 val jsonObj = json.parseToJsonElement(body).jsonObject
-                val models = jsonObj["data"]?.jsonArray
-                models?.mapNotNull { element ->
+                jsonObj["data"]?.jsonArray?.mapNotNull { element ->
                     element.jsonObject["id"]?.jsonPrimitive?.content
                 }?.sorted() ?: emptyList()
             } else emptyList()
-        } catch (_: Exception) {
-            emptyList()
-        }
+        } catch (_: Exception) { emptyList() }
     }
 }
 

@@ -121,7 +121,7 @@ fun CuteMessageBubble(
                     .padding(top = 6.dp, end = 6.dp)
                     .size(avatarSize)
                     .clip(CircleShape)
-                    .background(if (isSystemInDarkTheme()) Color(0xFFB5A8D5) else Color(0xFFD4C9F0)),
+                    .background(if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

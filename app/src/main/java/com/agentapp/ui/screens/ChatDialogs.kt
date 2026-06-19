@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.agentapp.data.model.Message
 import com.agentapp.data.model.Role
+import com.agentapp.ui.theme.CoralAccent
 import com.agentapp.ui.theme.Pink
 import com.agentapp.ui.theme.PinkDark
 import com.agentapp.ui.theme.TextGray
@@ -57,7 +58,7 @@ fun MessageActionDialog(
                 TextButton(
                     onClick = { onDelete(); onDismiss() },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("🗑️ 删除", color = Color(0xFFFF6B8A), fontWeight = FontWeight.Medium) }
+                ) { Text("🗑️ 删除", color = CoralAccent, fontWeight = FontWeight.Medium) }
             }
         },
         confirmButton = {
@@ -87,7 +88,7 @@ fun EditMessageDialog(
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3, maxLines = 10,
                 shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Pink)
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
             )
         },
         confirmButton = {

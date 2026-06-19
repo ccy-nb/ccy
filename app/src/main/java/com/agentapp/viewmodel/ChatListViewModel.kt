@@ -21,6 +21,7 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
     val sessions: StateFlow<List<Pair<ChatSession, String>>> = _sessions.asStateFlow()
 
     private var collectorJob: Job? = null
+    private var charWatcherJob: Job? = null
 
     init {
         startCollectors()
@@ -29,16 +30,19 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
     private fun startCollectors() {
         collectorJob?.cancel()
         collectorJob = viewModelScope.launch {
-            val characters = characterRepo.list()
-            val jobs = characters.map { char ->
-                launch {
-                    chatRepo.listFlow(char.id).collect { sessions ->
-                        refresh()
+            characterRepo.listFlow().collect { characters ->
+                // 取消旧的 per-character collectors，启动新的
+                charWatcherJob?.cancel()
+                charWatcherJob = Job()
+                characters.forEach { char ->
+                    launch(charWatcherJob!!) {
+                        chatRepo.listFlow(char.id).collect {
+                            refresh()
+                        }
                     }
                 }
+                refresh()
             }
-            refresh()
-            // Keep job references so they can be cancelled via collectorJob children
         }
     }
 
@@ -49,6 +53,10 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
                 chatRepo.list(char.id).map { it to char.name }
             }.sortedByDescending { it.first.updatedAt }
         }
+    }
+
+    fun getSessionsForCharacter(characterId: String): kotlinx.coroutines.flow.Flow<List<ChatSession>> {
+        return chatRepo.listFlow(characterId)
     }
 
     fun deleteSession(sessionId: String) {

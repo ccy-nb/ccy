@@ -14,8 +14,7 @@
         android:label="Agent App"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AgentApp"
-        android:usesCleartextTraffic="true">
+        android:theme="@style/Theme.AgentApp">
 
         <activity
             android:name=".MainActivity"

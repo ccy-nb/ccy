@@ -20,6 +20,25 @@ data class JsonPatchOp(
 typealias VariableTree = Map<String, kotlinx.serialization.json.JsonElement>
 
 /**
+ * 扁平化变量树为 路径→值 映射（从 VariableRepository 提取的纯函数）
+ */
+fun flattenVariables(vars: Map<String, kotlinx.serialization.json.JsonElement>, prefix: String = ""): Map<String, String> {
+    val result = LinkedHashMap<String, String>()
+    for ((key, value) in vars) {
+        val path = if (prefix.isEmpty()) key else "$prefix/$key"
+        when (value) {
+            is kotlinx.serialization.json.JsonPrimitive -> {
+                val v = value.content
+                if (v.isNotEmpty()) result[path] = v
+            }
+            is kotlinx.serialization.json.JsonObject -> result.putAll(flattenVariables(value, path))
+            else -> {}
+        }
+    }
+    return result
+}
+
+/**
  * 解析 <UpdateVariable> 块中的 JSONPatch 数组。
  * 返回操作列表，或空列表。
  */

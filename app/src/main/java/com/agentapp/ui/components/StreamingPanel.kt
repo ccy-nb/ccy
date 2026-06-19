@@ -34,8 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.agentapp.ui.theme.Pink
-import com.agentapp.ui.theme.PinkDark
+import com.agentapp.ui.theme.AccentGreen
+import com.agentapp.ui.theme.CoralAccent
+import com.agentapp.ui.theme.IndigoLight
+import com.agentapp.ui.theme.TealAccent
 import com.agentapp.ui.theme.TextGray
 
 /**
@@ -68,7 +70,7 @@ fun StreamingPanel(
             .padding(horizontal = 8.dp),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isLoading) Color(0xFFFFF0F3) else Color(0xFFF5FFF5)
+            containerColor = if (isLoading) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
@@ -84,21 +86,21 @@ fun StreamingPanel(
                         .size(10.dp)
                         .alpha(if (isLoading) ledAlpha else 1f)
                         .clip(CircleShape)
-                        .background(if (isLoading) Color(0xFFFF9800) else Color(0xFF4CAF50))
+                        .background(if (isLoading) IndigoLight else TealAccent)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     if (isLoading) "生成中..." else "已完成",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (isLoading) PinkDark else Color(0xFF4CAF50)
+                    color = if (isLoading) CoralAccent else TealAccent
                 )
                 Spacer(Modifier.weight(1f))
 
                 // 控制按钮组
                 if (isLoading) {
                     IconButton(onClick = onStop, modifier = Modifier.size(24.dp)) {
-                        Text("■", fontSize = 11.sp, color = Color(0xFFE53935))
+                        Text("■", fontSize = 11.sp, color = CoralAccent)
                     }
                     IconButton(onClick = onToggleMinimize, modifier = Modifier.size(24.dp)) {
                         Text(if (isMinimized) "□" else "−", fontSize = 13.sp, color = TextGray)

@@ -36,6 +36,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val varRepo = com.agentapp.data.repository.VariableRepository(application)
     private val presetRepo = PresetRepository(application)
     private val apiFactory = ApiFactory()
+    private val contextManager = com.agentapp.engine.ContextManager(
+        worldRepo = worldRepo,
+        personaProvider = { personaRepo.get() }
+    )
 
     private val _currentSession = MutableStateFlow<ChatSession?>(null)
     val currentSession: StateFlow<ChatSession?> = _currentSession.asStateFlow()
@@ -327,48 +331,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** 合并预设参数到 ApiConfig：预设值覆盖全局配置 */
-    private fun mergePresetToConfig(config: ApiConfig): ApiConfig {
-        val presetId = _selectedPresetId.value ?: return config
-        val preset = _presets.value.find { it.id == presetId } ?: return config
-        return config.copy(
-            temperature = preset.temperature,
-            maxTokens = preset.maxTokens,
-            maxContext = preset.maxContext,
-            topP = preset.topP,
-            topK = preset.topK,
-            frequencyPenalty = preset.frequencyPenalty,
-            presencePenalty = preset.presencePenalty,
-            repetitionPenalty = preset.repetitionPenalty,
-            minP = preset.minP,
-            model = if (preset.model.isNotBlank()) preset.model else config.model
-        )
-    }
-
-    /** 按上下文窗口截断历史消息：保留 system prompt + 最近的 N 条消息 */
-    private fun truncateMessages(messages: List<Message>, config: ApiConfig): List<Message> {
-        val maxTokens = config.maxTokens
-        val maxContext = config.maxContext
-        // 分离 system prompt
-        val systemMsgs = messages.filter { it.role == Role.SYSTEM }
-        val chatMsgs = messages.filter { it.role != Role.SYSTEM }
-        if (chatMsgs.isEmpty()) return messages
-
-        val tokenBudget = maxContext - maxTokens
-        if (tokenBudget <= 0) return systemMsgs + chatMsgs.takeLast(10) // 兜底：至少保留 10 条
-
-        // 粗略估算：中文约 1.5 token/字，英文约 1 token/词
-        var totalEstimate = 0
-        val reversed = chatMsgs.reversed()
-        val keepCount = reversed.indexOfFirst { msg ->
-            val estimated = (msg.content.length / 2) + 4  // 加 4 作为角色标记开销
-            totalEstimate += estimated
-            totalEstimate > tokenBudget
-        }.let { if (it < 0) reversed.size else it }
-
-        val keep = chatMsgs.takeLast(maxOf(keepCount, 4))  // 至少保留 4 条
-        return systemMsgs + keep
-    }
-
     fun speakText(text: String) {
         val ctx = getApplication<Application>()
         if (ttsInstance == null) {
@@ -409,10 +371,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val updated = session.copy(messages = messages)
         _currentSession.value = updated
 
-        viewModelScope.launch {
-            chatRepo.save(updated)
-        }
-
         // 取消上一次流式请求
         streamJob?.cancel()
         _isLoading.value = true
@@ -426,7 +384,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 加载当前变量 → 生成状态面板
                 val currentVars = varRepo.get(session.id)
                 val statusText = if (currentVars.keys.isNotEmpty()) {
-                    com.agentapp.data.model.formatVariableTree(varRepo.flattenVariables(currentVars))
+                    com.agentapp.data.model.formatVariableTree(com.agentapp.data.model.flattenVariables(currentVars))
                 } else ""
                 val scripts = baseScripts.toMutableList()
                 if (statusText.isNotEmpty()) {
@@ -436,17 +394,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 try {
                     val baseCfg = settingsRepo.getApiConfigSync()
-                    val cfg = mergePresetToConfig(baseCfg)
+                    val cfg = contextManager.mergePreset(baseCfg, _presets.value, _selectedPresetId.value)
                     val character = characterRepo.get(session.characterId)
 
                     // 构建带世界书的 API 消息列表
-                    val apiMsgs = buildApiMessages(updated.messages, character)
+                    val apiMsgs = contextManager.buildApiMessages(
+                        messages = updated.messages,
+                        character = character,
+                        characterId = session.characterId,
+                        onMatchedKeywords = { _matchedWorldKeywords.value = it }
+                    )
                     // 按上下文窗口截断
-                    val truncatedMsgs = truncateMessages(apiMsgs, cfg)
+                    val truncatedMsgs = contextManager.truncateMessages(apiMsgs, cfg)
 
                     apiFactory.chatStream(cfg, truncatedMsgs).collect { chunk ->
                         builder.append(chunk)
-                        _streamingText.value = regexRepo.applyScripts(builder.toString(), scripts)
+                        // 流式显示原始文本，正则只在最终结果应用一次
+                        _streamingText.value = builder.toString()
                     }
 
                     val reply = builder.toString()
@@ -581,120 +545,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * - 按 position 字段插入到对应位置
      * - 同时更新 _matchedWorldKeywords 供 UI 展示
      */
-    private suspend fun buildApiMessages(messages: List<Message>, character: com.agentapp.data.model.Character?): List<Message> {
-        val session = _currentSession.value ?: return if (character != null) {
-            listOf(Message(role = Role.SYSTEM, content = character.buildSystemPrompt())) + messages
-        } else messages
-
-        // 检查角色总开关
-        val worldBookEnabled = character?.worldBookEnabled ?: true
-
-        if (!worldBookEnabled) {
-            val sysMsg = character?.let {
-                Message(role = Role.SYSTEM, content = it.buildSystemPrompt())
-            }
-            return if (sysMsg != null) listOf(sysMsg) + messages else messages
-        }
-
-        // 匹配世界书
-        val matchResult = worldRepo.matchEntries(messages, character?.id)
-        val matchedKeys = worldRepo.matchKeywords(messages, character?.id)
-        _matchedWorldKeywords.value = matchedKeys
-
-        // 构建 system prompt 内容
-        val sysContent = StringBuilder()
-
-        // BEFORE_SYSTEM 条目插入最前面
-        matchResult[WorldEntryPosition.BEFORE_SYSTEM]?.forEach { entry ->
-            sysContent.appendLine(entry.content)
-            sysContent.appendLine()
-        }
-
-        // 用户 Persona（失败不影响聊天）
-        try {
-            val persona = personaRepo.get()
-            val personaPrompt = persona.buildPrompt()
-            if (personaPrompt.isNotEmpty()) {
-                sysContent.appendLine(personaPrompt)
-                sysContent.appendLine()
-            }
-        } catch (_: Exception) { /* 忽略 Persona 加载失败 */ }
-
-        // 角色定义
-        if (character != null) {
-            sysContent.append(character.buildCharacterPrompt())
-            sysContent.appendLine()
-        }
-
-        // 深度提示（独立注入，在角色定义之后、世界书 AFTER_SYSTEM 之前）
-        if (character != null && character.depthPrompt.isNotBlank()) {
-            sysContent.appendLine("=== 深度指令 ===")
-            sysContent.appendLine(character.depthPrompt)
-            sysContent.appendLine()
-        }
-
-        // AFTER_SYSTEM 条目追加到最后
-        matchResult[WorldEntryPosition.AFTER_SYSTEM]?.forEach { entry ->
-            sysContent.appendLine()
-            sysContent.appendLine("=== 世界观设定 ===")
-            sysContent.appendLine(entry.content)
-        }
-
-        val sysMsg = Message(role = Role.SYSTEM, content = sysContent.toString())
-        val apiMsgs = mutableListOf(sysMsg).apply { addAll(messages) }
-
-        // 按位置插入世界书条目到消息流中
-        // apiMsgs 结构: [sysMsg, msg1, msg2, msg3, ...]
-        // msg 循环索引 (skip sysMsg at index 0)
-        var insertOffset = 0
-        for (i in 1 until apiMsgs.size) {
-            val msg = apiMsgs[i]
-            when (msg.role) {
-                Role.USER -> {
-                    // BEFORE_USER: 在此用户消息前插入
-                    val beforeUser = matchResult[WorldEntryPosition.BEFORE_USER]
-                    if (!beforeUser.isNullOrEmpty()) {
-                        val content = beforeUser.joinToString("\n") { it.content }
-                        apiMsgs.add(i + insertOffset, Message(role = Role.SYSTEM, content = content))
-                        insertOffset++
-                    }
-                }
-                Role.ASSISTANT -> {
-                    // BEFORE_ASSISTANT: 在此助手消息前插入
-                    val beforeAsst = matchResult[WorldEntryPosition.BEFORE_ASSISTANT]
-                    if (!beforeAsst.isNullOrEmpty()) {
-                        val content = beforeAsst.joinToString("\n") { it.content }
-                        apiMsgs.add(i + insertOffset, Message(role = Role.SYSTEM, content = content))
-                        insertOffset++
-                    }
-                }
-                else -> {}
-            }
-            // AFTER_USER/AFTER_ASSISTANT: 在消息后插入
-            when (msg.role) {
-                Role.USER -> {
-                    val afterUser = matchResult[WorldEntryPosition.AFTER_USER]
-                    if (!afterUser.isNullOrEmpty()) {
-                        val content = afterUser.joinToString("\n") { it.content }
-                        apiMsgs.add(i + insertOffset + 1, Message(role = Role.SYSTEM, content = content))
-                        insertOffset++
-                    }
-                }
-                Role.ASSISTANT -> {
-                    val afterAsst = matchResult[WorldEntryPosition.AFTER_ASSISTANT]
-                    if (!afterAsst.isNullOrEmpty()) {
-                        val content = afterAsst.joinToString("\n") { it.content }
-                        apiMsgs.add(i + insertOffset + 1, Message(role = Role.SYSTEM, content = content))
-                        insertOffset++
-                    }
-                }
-                else -> {}
-            }
-        }
-
-        return apiMsgs
-    }
-
     override fun onCleared() {
         streamJob?.cancel()
         messagesJob?.cancel()

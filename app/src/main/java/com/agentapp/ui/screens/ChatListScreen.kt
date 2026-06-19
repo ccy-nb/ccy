@@ -51,7 +51,8 @@ import com.agentapp.viewmodel.CharacterListViewModel
 fun ChatListScreen(
     modifier: Modifier = Modifier,
     chatListViewModel: ChatListViewModel,
-    characterListViewModel: CharacterListViewModel
+    characterListViewModel: CharacterListViewModel,
+    onEnterChat: (sessionId: String, charName: String) -> Unit = { _, _ -> }
 ) {
     val sessions by chatListViewModel.sessions.collectAsState()
     var selectedSessionId by remember { mutableStateOf<String?>(null) }
@@ -59,14 +60,8 @@ fun ChatListScreen(
 
     // 进入聊天
     if (selectedSessionId != null) {
-        ChatScreen(
-            sessionId = selectedSessionId!!,
-            characterName = selectedCharacterName,
-            onBack = {
-                selectedSessionId = null
-                chatListViewModel.refresh()
-            }
-        )
+        onEnterChat(selectedSessionId!!, selectedCharacterName)
+        selectedSessionId = null
         return
     }
 
