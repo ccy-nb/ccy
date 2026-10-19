@@ -1,0 +1,5 @@
+===== 采集时间 2026-10-20 07:05:48 CST =====
+[京东] probe=blocked_antibot url=https://cfe.m.jd.com/privatedomain/risk_handler/03101900/?evApi=color-mesh_A_SC_pc_search_java_Search&evExt=&evtype=3&lgid=2193&returnurl=https%3A%2F%2Fsearch.jd.com%2FSearch%3Fkeyword%3DDDR4%252016G%25203200%2520%25E5%2586%2585%25E5%25AD%2598%25E6%259D%25A1&rpid=rp-188534597-10212-1792451149004 反爬拦截：京东返回风险验证页(京东验证)
+[天猫/淘宝] probe=ok url=https://s.taobao.com/search?q=DDR4%2016G%203200%20%E5%86%85%E5%AD%98%E6%9D%A1 
+[拼多多] probe=ok url=https://mobile.yangkeduo.com/search_result.html?search_key=DDR4%2016G%203200%20%E5%86%85%E5%AD%98%E6%9D%A1 
+[抖音商城] probe=error_http url=https://haohuo.jinritemai.com/views/search?q=DDR4%2016G%203200%20%E5%86%85%E5%AD%98%E6%9D%A1 HTTP 错误 502：无法获取数据

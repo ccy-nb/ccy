@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>内存 / 显卡价格走势</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         background:#0f1419; color:#e6e6e6; }
+  header { padding:24px 28px; border-bottom:1px solid #2a323d; }
+  h1 { margin:0 0 6px; font-size:22px; }
+  .sub { color:#8b98a5; font-size:13px; }
+  main { padding:20px 28px 48px; max-width:1200px; margin:0 auto; }
+  section { background:#161b22; border:1px solid #2a323d; border-radius:12px; padding:18px 20px; margin-bottom:22px; }
+  h2 { font-size:16px; margin:0 0 14px; color:#f0f6fc; }
+  canvas { width:100%; height:320px; display:block; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:8px 10px; border-bottom:1px solid #21262d; text-align:left; }
+  th { color:#8b98a5; font-weight:500; background:#12171e; }
+  td.up { color:#f85149; } td.down { color:#3fb950; } td.flat { color:#8b98a5; }
+  td.base { color:#58a6ff; }
+  .empty { text-align:center; color:#8b98a5; padding:24px; }
+  .note { color:#8b98a5; font-size:12px; margin-top:10px; line-height:1.7; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#21262d; color:#8b98a5; font-size:12px; margin-right:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>内存条 / 显卡 价格走势</h1>
+  <div class="sub">数据来源：京东 · 天猫/淘宝 · 拼多多 · 抖音商城　|　生成时间：2026-10-20 07:05:48　|　含日期：2026-10-20</div>
+</header>
+<main>
+  <section>
+    <h2>内存价格走势（DDR4 / DDR5）</h2>
+    <canvas id="memChart"></canvas>
+  </section>
+  <section>
+    <h2>显卡价格走势（NVIDIA / AMD）</h2>
+    <canvas id="gpuChart"></canvas>
+  </section>
+  <section>
+    <h2>走势对比（与上次含价格记录相比）</h2>
+    <table>
+      <thead><tr><th>平台</th><th>类别</th><th>型号</th><th>上次(元)</th><th>最新(元)</th><th>走势</th><th>变化</th><th>最新日期</th></tr></thead>
+      <tbody><tr><td colspan='8' class='empty'>暂无含价格的历史记录</td></tr></tbody>
+    </table>
+  </section>
+  <section>
+    <h2>数据完整性说明</h2>
+    <p class="note" id="statusNote"></p>
+  </section>
+</main>
+<script>
+const DATA = {"dates": ["2026-10-20"], "rows": [{"date": "2026-10-20", "platform": "京东", "category": "内存", "model": "DDR4 16GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "内存", "model": "DDR4 16GB 3600MHz", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "内存", "model": "DDR4 32GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "内存", "model": "DDR5 16GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "内存", "model": "DDR5 32GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "NVIDIA RTX 4060", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "NVIDIA RTX 4060 Ti", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "NVIDIA RTX 4070", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "NVIDIA RTX 4070 Ti", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "NVIDIA RTX 4080", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "NVIDIA RTX 4090", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "AMD RX 7600", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "AMD RX 7700 XT", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "AMD RX 7800 XT", "price": null}, {"date": "2026-10-20", "platform": "京东", "category": "显卡", "model": "AMD RX 7900 XT", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "内存", "model": "DDR4 16GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "内存", "model": "DDR4 16GB 3600MHz", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "内存", "model": "DDR4 32GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "内存", "model": "DDR5 16GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "内存", "model": "DDR5 32GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "NVIDIA RTX 4060", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "NVIDIA RTX 4060 Ti", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "NVIDIA RTX 4070", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "NVIDIA RTX 4070 Ti", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "NVIDIA RTX 4080", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "NVIDIA RTX 4090", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "AMD RX 7600", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "AMD RX 7700 XT", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "AMD RX 7800 XT", "price": null}, {"date": "2026-10-20", "platform": "天猫/淘宝", "category": "显卡", "model": "AMD RX 7900 XT", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "内存", "model": "DDR4 16GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "内存", "model": "DDR4 16GB 3600MHz", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "内存", "model": "DDR4 32GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "内存", "model": "DDR5 16GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "内存", "model": "DDR5 32GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "NVIDIA RTX 4060", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "NVIDIA RTX 4060 Ti", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "NVIDIA RTX 4070", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "NVIDIA RTX 4070 Ti", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "NVIDIA RTX 4080", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "NVIDIA RTX 4090", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "AMD RX 7600", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "AMD RX 7700 XT", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "AMD RX 7800 XT", "price": null}, {"date": "2026-10-20", "platform": "拼多多", "category": "显卡", "model": "AMD RX 7900 XT", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "内存", "model": "DDR4 16GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "内存", "model": "DDR4 16GB 3600MHz", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "内存", "model": "DDR4 32GB 3200MHz", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "内存", "model": "DDR5 16GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "内存", "model": "DDR5 32GB 6000MHz", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "NVIDIA RTX 4060", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "NVIDIA RTX 4060 Ti", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "NVIDIA RTX 4070", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "NVIDIA RTX 4070 Ti", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "NVIDIA RTX 4080", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "NVIDIA RTX 4090", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "AMD RX 7600", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "AMD RX 7700 XT", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "AMD RX 7800 XT", "price": null}, {"date": "2026-10-20", "platform": "抖音商城", "category": "显卡", "model": "AMD RX 7900 XT", "price": null}]};
+const COLORS = ["#58a6ff","#f0883e","#3fb950","#f85149","#bc8cff","#39c5cf","#e3b341","#ff7b72","#7ee787","#a5d6ff","#ffa657","#56d364","#d2a8ff","#79c0ff","#ff9bce"];
+
+function drawChart(canvasId, category) {
+  const cv = document.getElementById(canvasId);
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 800, H = 320;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const models = [...new Set(DATA.rows.filter(r=>r.category===category).map(r=>r.model))];
+  const series = {};
+  let hasData = false;
+  for (const m of models) {
+    series[m] = DATA.dates.map(d => {
+      const rec = DATA.rows.filter(r=>r.model===m && r.date===d && r.price!=null);
+      return rec.length ? Math.min(...rec.map(r=>r.price)) : null;
+    });
+    if (series[m].some(v=>v!=null)) hasData = true;
+  }
+  if (!hasData) {
+    ctx.fillStyle = "#8b98a5"; ctx.font = "14px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("暂无可用价格数据（各平台均需登录 / 存在反爬拦截，详见下方说明）", W/2, H/2);
+    return;
+  }
+  const pad = {l:60,r:20,t:20,b:40};
+  const vals = Object.values(series).flat().filter(v=>v!=null);
+  const min = Math.min(...vals)*0.95, max = Math.max(...vals)*1.05;
+  const x = i => pad.l + (DATA.dates.length<=1 ? (W-pad.l-pad.r)/2 : i*(W-pad.l-pad.r)/(DATA.dates.length-1));
+  const y = v => pad.t + (max-v)/(max-min||1)*(H-pad.t-pad.b);
+  ctx.strokeStyle="#2a323d"; ctx.fillStyle="#8b98a5"; ctx.font="11px sans-serif";
+  for (let g=0; g<=4; g++) {
+    const v = min + (max-min)*g/4, yy = y(v);
+    ctx.beginPath(); ctx.moveTo(pad.l,yy); ctx.lineTo(W-pad.r,yy); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText("¥"+v.toFixed(0), pad.l-8, yy+4);
+  }
+  ctx.textAlign="center";
+  DATA.dates.forEach((d,i)=>ctx.fillText(d.slice(5), x(i), H-14));
+  models.forEach((m,mi) => {
+    const pts = series[m].map((v,i)=> v==null?null:[x(i),y(v)]).filter(Boolean);
+    ctx.strokeStyle = COLORS[mi%COLORS.length]; ctx.lineWidth=2;
+    ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.stroke();
+    ctx.fillStyle = COLORS[mi%COLORS.length];
+    pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p[0],p[1],3.5,0,7); ctx.fill(); });
+    // legend
+    const lx = pad.l + (mi%3)*180, ly = pad.t + Math.floor(mi/3)*16;
+    ctx.fillRect(lx, ly-6, 10, 10);
+    ctx.textAlign="left"; ctx.fillText(m, lx+15, ly+3);
+  });
+}
+window.addEventListener("load", ()=>{ drawChart("memChart","内存"); drawChart("gpuChart","显卡"); });
+
+// 完整性说明
+const rows = DATA.rows;
+const note = document.getElementById("statusNote");
+const total = rows.length;
+const noData = rows.filter(r=>r.price==null).length;
+note.innerHTML = `共 <b>${total}</b> 条记录，其中 <b>${noData}</b> 条无价格（原因见 CSV 的 status/note 列与 /workspace/collection_log.txt）。<br>
+图表与表格完全基于 <code>/workspace/memory_gpu_prices.csv</code> 绘制；随着日志按天累积，价格序列会自动出现并显示趋势。`;
+</script>
+</body>
+</html>
